@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: recibir
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    autoDeploy: true
+    disk:
+      name: recibir-uploads
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: recibir-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: UPLOADS_PATH
+        value: /var/data/uploads
+
+databases:
+  - name: recibir-db
+    plan: basic-256mb
+    databaseName: recibir
+    user: recibir

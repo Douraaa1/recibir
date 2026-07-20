@@ -1,0 +1,13 @@
+{
+	"name": "RECIBIR",
+	"short_name": "RECIBIR",
+	"description": "Dashboard interne de gestion des transferts d'argent",
+	"start_url": "/admin",
+	"scope": "/admin",
+	"display": "standalone",
+	"background_color": "#0b1120",
+	"theme_color": "#0b1120",
+	"icons": [
+		{ "src": "/assets/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+	]
+}

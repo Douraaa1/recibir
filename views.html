@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<style>
+			/* Baseline reset — removes the default html/body spacing. */
+			*,
+			*::before,
+			*::after {
+				box-sizing: border-box;
+			}
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+			}
+			body {
+				min-height: 100vh;
+				font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+				-webkit-font-smoothing: antialiased;
+			}
+		</style>
+		<!--kratos-head-->
+	</head>
+	<body>
+		<div id="kratos-view-root"><!--kratos-app--></div>
+		<!--kratos-page-->
+		<script type="module" src="/src/views/entry-client.tsx"></script>
+	</body>
+</html>

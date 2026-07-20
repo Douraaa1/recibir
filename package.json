@@ -1,0 +1,36 @@
+{
+	"name": "enviar-board",
+	"version": "1.0.0",
+	"private": true,
+	"description": "A KratosJs admin panel (SQLite)",
+	"scripts": {
+		"dev": "tsx watch src/index.ts",
+		"build": "npm run build:server && npm run build:admin && npm run build:views",
+		"build:server": "tsc",
+		"build:admin": "vite build",
+		"build:views": "vite build -c vite.views.config.mts && vite build -c vite.views.config.mts --ssr src/views/entry-server.tsx",
+		"start": "NODE_ENV=production node dist/index.js"
+	},
+	"dependencies": {
+		"@maxal_studio/kratosjs": "^3.0.2",
+		"@maxal_studio/kratosjs-express": "^3.0.2",
+		"@maxal_studio/kratosjs-plugin-2fa": "^3.0.0",
+		"@mikro-orm/core": "^7.1.7",
+		"@mikro-orm/migrations": "^7.1.7",
+		"@mikro-orm/postgresql": "^7.1.7",
+		"@mikro-orm/sqlite": "^7.1.7",
+		"dotenv": "^17.4.2",
+		"jsonwebtoken": "^9.0.3"
+	},
+	"devDependencies": {
+		"@maxal_studio/kratosjs-react": "^3.0.2",
+		"@types/jsonwebtoken": "^9.0.10",
+		"@types/node": "^25.9.3",
+		"react": "^19.2.7",
+		"react-dom": "^19.2.7",
+		"react-hook-form": "^7.79.0",
+		"tsx": "^4.22.4",
+		"typescript": "^5.9.3",
+		"vite": "^7.3.5"
+	}
+}
