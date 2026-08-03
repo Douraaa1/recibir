@@ -9,6 +9,7 @@ const DEFAULTS: { code: CurrencyCode; label: string; rateToGNF: number }[] = [
 	{ code: 'EUR', label: 'Euro', rateToGNF: 9300 },
 	{ code: 'XOF', label: 'Franc CFA (BCEAO)', rateToGNF: 14.2 },
 	{ code: 'CAD', label: 'Dollar Canadien', rateToGNF: 6300 },
+	{ code: 'AED', label: 'Dirham des Émirats Arabes Unis', rateToGNF: 2340 },
 ];
 
 /** Ensure the 5 starting currencies exist so the Taux de Change table isn't empty on first boot. */

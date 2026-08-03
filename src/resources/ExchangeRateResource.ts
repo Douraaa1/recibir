@@ -20,6 +20,7 @@ const CURRENCY_OPTIONS = {
 	EUR: 'EUR — Euro',
 	XOF: 'XOF — Franc CFA (BCEAO)',
 	CAD: 'CAD — Dollar Canadien',
+	AED: 'AED — Dirham des Émirats Arabes Unis',
 };
 
 export class ExchangeRateResource extends BaseResource {
@@ -30,10 +31,11 @@ export class ExchangeRateResource extends BaseResource {
 	static label = 'Taux de Change';
 	static pluralLabel = 'Taux de Change';
 	static icon = 'ArrowRightLeft';
-	static navigationGroup = 'Système';
-	static navigationSort = 2;
 
 	static canDelete = true;
+	// No standalone nav entry — embedded as a TableBlock in ParametresPage
+	// (alongside Sécurité) instead. Still fully routable via /exchange-rates/*.
+	static hidden = true;
 
 	static recordTitleAttribute = 'label';
 	static globallySearchableAttributes = ['code', 'label'];

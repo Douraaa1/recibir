@@ -3,28 +3,45 @@ import path from 'path';
 import { Panel, LocalMediaAdapter, EmailAuthProvider } from '@maxal_studio/kratosjs';
 import { ExpressAdapter } from '@maxal_studio/kratosjs-express';
 import { TwoFactorPlugin } from '@maxal_studio/kratosjs-plugin-2fa';
+import { CsvExportPlugin } from '@maxal_studio/kratosjs-plugin-csv-export';
 import { SqliteDriver } from '@mikro-orm/sqlite';
 import { PostgreSqlDriver } from '@mikro-orm/postgresql';
 import { Migrator } from '@mikro-orm/migrations';
 import { UserResource } from './resources/UserResource';
-import { TransactionResource } from './resources/TransactionResource';
+import { CardGroupResource } from './resources/CardGroupResource';
+import { CardResource } from './resources/CardResource';
+import { WithdrawalCycleResource } from './resources/WithdrawalCycleResource';
+import { ShiftResource } from './resources/ShiftResource';
+import { WrongfulDebitResource } from './resources/WrongfulDebitResource';
+import { ClientPaymentResource } from './resources/ClientPaymentResource';
 import { SettingResource } from './resources/SettingResource';
 import { ExchangeRateResource } from './resources/ExchangeRateResource';
 import { DashboardPage } from './pages/DashboardPage';
-import { ReportsPage } from './pages/ReportsPage';
+import { ParametresPage } from './pages/ParametresPage';
 import { User } from './entities/User';
 import { seedAdminUser } from './seedAdminUser';
 import { seedSettings } from './seedSettings';
 import { seedExchangeRates } from './seedExchangeRates';
 import { sessionTimeoutMiddleware } from './middleware/sessionTimeout';
+import { frenchCsvExporter } from './utils/frenchCsvExporter';
 
 // Nav items that only make sense for the admin/manager role — hidden from
-// agents via the metadata filter hook registered below.
-const ADMIN_ONLY_RESOURCE_SLUGS = ['users', 'settings', 'exchange-rates'];
-const ADMIN_ONLY_PAGE_SLUGS = ['reports'];
-// Actions on the Transactions table that only the admin may run — agents can
-// initiate transfers but only the admin validates the payout or cancels it.
-const ADMIN_ONLY_ACTIONS = ['validate', 'cancel'];
+// agents via the metadata filter hook registered below. "shifts",
+// "wrongful-debits" and "client-payments" are deliberately NOT here: agents
+// need those, just scoped to their own records (see the matching hooks).
+// "withdrawal-cycles" isn't here either — an agent needs to browse cycles
+// (read-only) to find the one their assigned shift belongs to; creation is
+// blocked for them via the capabilities filter hook below, not by hiding it.
+// "settings"/"exchange-rates" are `hidden` on the resource itself (embedded
+// in ParametresPage instead of their own nav entry). "parametres" isn't
+// admin-only either — agents need it too, for self-service 2FA (see
+// ParametresPage, which gates its Settings/Taux de Change blocks to admins
+// internally instead of hiding the whole page).
+const ADMIN_ONLY_RESOURCE_SLUGS = ['users', 'card-groups', 'cards'];
+const ADMIN_ONLY_PAGE_SLUGS: string[] = [];
+// Dealing with the bank (requesting/confirming a refund) is an admin task —
+// the agent can report a wrongful debit, but not resolve it.
+const ADMIN_ONLY_ACTIONS = ['requestRefund', 'markRefunded'];
 
 const PORT = parseInt(process.env.PORT || '3000');
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -73,9 +90,19 @@ const adminPanel = Panel.make('admin')
 			isDefault: true,
 		}),
 	])
-	.resources([UserResource, TransactionResource, SettingResource, ExchangeRateResource])
-	.pages([DashboardPage, ReportsPage])
-	.plugins([new TwoFactorPlugin({ issuer: 'RECIBIR' })]);
+	.resources([
+		UserResource,
+		CardGroupResource,
+		CardResource,
+		WithdrawalCycleResource,
+		ShiftResource,
+		WrongfulDebitResource,
+		ClientPaymentResource,
+		SettingResource,
+		ExchangeRateResource,
+	])
+	.pages([DashboardPage, ParametresPage])
+	.plugins([new TwoFactorPlugin({ issuer: 'RECIBIR' }), new CsvExportPlugin()]);
 
 // --- Admin vs Agent layout ---------------------------------------------
 // RECIBIR has exactly two roles (see the User entity's `role` column).
@@ -83,21 +110,31 @@ const adminPanel = Panel.make('admin')
 // configurable permission sets), the two-role split is wired directly with
 // the panel's low-level filter/access hooks.
 
-// Hide admin-only nav entries (e.g. "Collaborateurs") from agents. Still
-// enforced server-side by the hooks below — this only controls the sidebar.
+// registerMetadataFilterHook is a single slot (last call wins, they don't
+// stack) — every metadata tweak has to live in this one hook.
 adminPanel.registerMetadataFilterHook((metadata, user) => {
-	if (user?.role === 'admin') return metadata;
-	metadata.resources = metadata.resources.map(r =>
-		ADMIN_ONLY_RESOURCE_SLUGS.includes(r.slug) ? { ...r, hidden: true } : r,
-	);
-	metadata.pages = metadata.pages.map(p =>
-		ADMIN_ONLY_PAGE_SLUGS.includes(p.slug) ? { ...p, hidden: true } : p,
-	);
+	// Hide admin-only nav entries (e.g. "Collaborateurs", "Groupes de Cartes")
+	// from agents. Still enforced server-side by each resource's own hooks —
+	// this only controls the sidebar.
+	if (user?.role !== 'admin') {
+		metadata.resources = metadata.resources.map(r =>
+			ADMIN_ONLY_RESOURCE_SLUGS.includes(r.slug) ? { ...r, hidden: true } : r,
+		);
+		metadata.pages = metadata.pages.map(p =>
+			ADMIN_ONLY_PAGE_SLUGS.includes(p.slug) ? { ...p, hidden: true } : p,
+		);
+	}
+	// The 2FA plugin registers its own standalone nav page ("Security" group)
+	// by default — its TwoFactorSetupBlock is embedded directly in
+	// ParametresPage instead (available to every role there), so hide the
+	// plugin's page from the sidebar entirely. `hidden`, not `excluded`: the
+	// route stays registered, it's just unreachable via nav.
+	metadata.pages = metadata.pages.map(p => (p.slug === '2fa' ? { ...p, hidden: true } : p));
 	return metadata;
 });
 
 // Server-side guard matching the sidebar restriction above — blocks an agent
-// from loading Rapports directly by URL, not just hiding the nav entry.
+// from loading Paramètres directly by URL, not just hiding the nav entry.
 adminPanel.registerPageAccessCheckHook((pageSlug, user) => {
 	if (ADMIN_ONLY_PAGE_SLUGS.includes(pageSlug)) {
 		return user?.role === 'admin';
@@ -105,11 +142,21 @@ adminPanel.registerPageAccessCheckHook((pageSlug, user) => {
 	return true;
 });
 
-// Strip the "Valider" / "Annuler" row actions from the Transactions table for
-// agents — they can create and view transfers, but only the admin decides
-// whether a transfer completes or gets cancelled.
+// An agent needs to see Cycles de Retrait (to find their assigned shift's
+// context) but never create or edit one — only the admin does. Hides the
+// "New"/"Edit" buttons; withdrawalCycleHooks rejects the request either way.
+adminPanel.registerCapabilitiesFilterHook((capabilities, resourceSlug, user) => {
+	if (resourceSlug === 'withdrawal-cycles' && user?.role !== 'admin') {
+		return { ...capabilities, canCreate: false, canEdit: false };
+	}
+	return capabilities;
+});
+
+// Strip the refund-lifecycle actions from the Débits à Tort table for
+// agents — they can report a wrongful debit, but resolving it with the bank
+// is the admin's job.
 adminPanel.registerTableSchemaFilterHook((schema, resourceSlug, user) => {
-	if (resourceSlug === 'transactions' && user?.role !== 'admin' && schema.actions) {
+	if (resourceSlug === 'wrongful-debits' && user?.role !== 'admin' && schema.actions) {
 		schema.actions = schema.actions.filter((a: { name: string }) => !ADMIN_ONLY_ACTIONS.includes(a.name));
 	}
 	return schema;
@@ -117,36 +164,53 @@ adminPanel.registerTableSchemaFilterHook((schema, resourceSlug, user) => {
 
 // Server-side guard matching the UI restriction above (never trust the client).
 adminPanel.registerActionAccessCheckHook((actionName, resourceSlug, user) => {
-	if (resourceSlug === 'transactions' && ADMIN_ONLY_ACTIONS.includes(actionName)) {
+	if (resourceSlug === 'wrongful-debits' && ADMIN_ONLY_ACTIONS.includes(actionName)) {
 		return user?.role === 'admin';
 	}
 	return true;
 });
 
-// The Dashboard page embeds the Transactions table directly (TableBlock.make),
-// which bypasses the table-schema endpoint the hook above filters — strip the
-// same actions here so agents don't see "Valider"/"Annuler" on the dashboard either.
-adminPanel.registerPageBlocksFilterHook((blocks, _pageSlug, user) => {
-	if (user?.role === 'admin') return blocks;
-	for (const block of blocks) {
-		if (block.type === 'table' && block.table?.actions) {
-			block.table.actions = block.table.actions.filter(
-				(a: { name: string }) => !ADMIN_ONLY_ACTIONS.includes(a.name),
-			);
-		}
-	}
-	return blocks;
+// No real i18n setup (no `.i18n()` call) — the app stays on the framework's
+// implicit single 'en' locale, so no language switcher ever appears. The 2FA
+// plugin's self-service setup UI and login challenge ship English-only text
+// though, so this overrides its 'en' catalog with French strings directly
+// (app-registered translations win over the plugin's own, same locale key —
+// last `registerTranslations` call for a given namespace+locale wins). Do
+// NOT introduce a real 'fr' locale here: declaring one via `.i18n({locales:
+// ['fr'], ...})` makes the framework's `supportedLngs` reject the fallback
+// to 'en' for every key we haven't translated (core chrome, csv-export,
+// etc.), so untranslated strings render as raw keys instead of English text.
+adminPanel.registerTranslations('2fa', {
+	en: {
+		'error.auth_required': 'Authentification requise',
+		'error.code_required': 'Un code de vérification est requis',
+		'error.run_setup': "Lancez la configuration avant d'activer la 2FA",
+		'error.invalid_code': 'Code de vérification invalide',
+		'challenge.code_label': "Code d'authentification",
+		'challenge.hint': 'Entrez le code à 6 chiffres de votre application d’authentification.',
+		'challenge.verify': 'Vérifier',
+		'challenge.back': 'Retour à la connexion',
+		'setup.request_failed': 'Échec de la requête',
+		'setup.status_failed': "Échec du chargement du statut de l'authentification à deux facteurs",
+		'setup.enabled_toast': 'Authentification à deux facteurs activée',
+		'setup.disabled_toast': 'Authentification à deux facteurs désactivée',
+		'setup.heading': 'Authentification à deux facteurs',
+		'setup.subtitle': 'Ajoute un code à usage unique généré par une application d’authentification à ta connexion.',
+		'setup.active': 'L’authentification à deux facteurs est active sur ton compte.',
+		'setup.disable_label': 'Entre un code actuel pour désactiver',
+		'setup.disable_button': 'Désactiver la 2FA',
+		'setup.step_scan': 'Scanne le QR code avec Google Authenticator (ou une autre application TOTP).',
+		'setup.step_enter': 'Entre le code à 6 chiffres affiché pour confirmer.',
+		'setup.qr_alt': 'QR code 2FA',
+		'setup.manual_key': 'Ou entre cette clé manuellement :',
+		'setup.verify_label': 'Code de vérification',
+		'setup.enable_button': 'Activer la 2FA',
+		'setup.cancel': 'Annuler',
+		'setup.not_set_up':
+			"L'authentification à deux facteurs n'est pas configurée. Une fois activée, un code de ton application d'authentification te sera demandé à chaque connexion.",
+		'setup.start_button': "Configurer l'authentification à deux facteurs",
+	},
 });
-
-// Multilingual support (optional). This is the single source of truth for
-// languages — the admin client auto-configures itself from what you register here.
-//
-// adminPanel
-// 	.i18n({ locales: ['en', 'sq'], defaultLocale: 'en', fallbackLocale: 'en' })
-// 	.registerTranslations('app', {
-// 		en: { 'users.label': 'Users' },
-// 		sq: { 'users.label': 'Përdoruesit' },
-// 	});
 
 // Email/password login. With `userEntity` set, `validateCredentials` and `getUserById`
 // are provided by default (look up the user, verify the password). Providers return the
@@ -160,8 +224,8 @@ adminPanel.auth({
 	},
 	userEntity: User,
 	providers: [new EmailAuthProvider()],
-	// `role` drives the Admin/Agent split (sidebar visibility, validation
-	// actions, caisse scoping) — see the filter hooks registered below.
+	// `role` drives the Admin/Agent split (sidebar visibility, shift
+	// assignment, treasury scoping) — see the filter hooks registered below.
 	extendUser: user => ({ role: user.role }),
 });
 
@@ -189,6 +253,12 @@ adminPanel.route('get', '/', (_req, reply) =>
 
 adminPanel
 	.start(PORT, async () => {
+		// Overrides the csv-export plugin's default comma-delimited exporter
+		// (same 'csv' key, last registerExporter() call wins). Must run here,
+		// after plugin registration (which happens inside .start(), before
+		// this callback fires) — registering it earlier would just get
+		// clobbered by the plugin's own registerExporter('csv', ...) call.
+		adminPanel.registerExporter('csv', frenchCsvExporter);
 		await seedAdminUser(adminPanel);
 		await seedSettings(adminPanel);
 		await seedExchangeRates(adminPanel);

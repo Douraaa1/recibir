@@ -15,6 +15,7 @@
 		"@maxal_studio/kratosjs": "^3.0.2",
 		"@maxal_studio/kratosjs-express": "^3.0.2",
 		"@maxal_studio/kratosjs-plugin-2fa": "^3.0.0",
+		"@maxal_studio/kratosjs-plugin-csv-export": "^3.0.0",
 		"@mikro-orm/core": "^7.1.7",
 		"@mikro-orm/migrations": "^7.1.7",
 		"@mikro-orm/postgresql": "^7.1.7",

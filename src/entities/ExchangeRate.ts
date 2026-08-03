@@ -1,6 +1,6 @@
 import { EntitySchema } from '@mikro-orm/core';
 
-export type CurrencyCode = 'GNF' | 'USD' | 'EUR' | 'XOF' | 'CAD';
+export type CurrencyCode = 'GNF' | 'USD' | 'EUR' | 'XOF' | 'CAD' | 'AED';
 
 export interface IExchangeRate {
 	id: number;

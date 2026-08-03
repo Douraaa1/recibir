@@ -15,20 +15,22 @@ import {
 	type FormContext,
 } from '@maxal_studio/kratosjs';
 import { User } from '../entities/User';
-import { Transaction } from '../entities/Transaction';
+import { Shift } from '../entities/Shift';
+import { WrongfulDebit } from '../entities/WrongfulDebit';
 import { userHooks } from '../hooks/userHooks';
 
-const ROLE_LABELS = { admin: 'Administrateur', agent: 'Agent' };
+const ROLE_LABELS = { admin: 'Administrateur', agent: 'Agent (Dubaï)' };
 
-// Agent's uncollected cash: transactions they've taken in that the admin
-// hasn't yet reconciled (validated or cancelled). Mirrors the "myCaisse"
-// widget on TransactionResource, but computed per-row here for the team list.
-async function caisseForAgent(em: any, agentId: number): Promise<number> {
-	const rows = await em.find(Transaction, {
-		agent: agentId,
-		status: { $in: ['pending', 'blocked'] },
-	} as any);
-	return rows.reduce((sum: number, t: any) => sum + t.amount, 0);
+// What this agent has actually netted across their own shifts (withdrawn
+// minus their own outstanding — not yet refunded — wrongful debits) — not
+// the shared treasury balance (that also nets out client payments; see
+// ShiftResource's 'shifts.treasuryTotal').
+async function netGeneratedByAgent(em: any, agentId: number): Promise<number> {
+	const shifts = await em.find(Shift, { agent: agentId } as any);
+	const withdrawn = shifts.reduce((sum: number, s: any) => sum + s.withdrawnAED, 0);
+	const debits = await em.find(WrongfulDebit, { agent: agentId, status: { $ne: 'refunded' } } as any);
+	const wrongfulTotal = debits.reduce((sum: number, d: any) => sum + d.amountAED, 0);
+	return withdrawn - wrongfulTotal;
 }
 
 export class UserResource extends BaseResource {
@@ -77,13 +79,13 @@ export class UserResource extends BaseResource {
 					.label('Rôle')
 					.formatStateUsing((value: string) => ROLE_LABELS[value as keyof typeof ROLE_LABELS] ?? value)
 					.sortable(),
-				TextColumn.make('caisse')
-					.label('Caisse (non réconciliée)')
+				TextColumn.make('netGenerated')
+					.label('Net généré (AED)')
 					.formatStateUsing(async (_value: any, row: any) => {
 						if (row.role !== 'agent') return '—';
 						const em = UserResource.getPanel().getEm().fork();
-						const total = await caisseForAgent(em, row.id);
-						return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'GNF' }).format(total);
+						const total = await netGeneratedByAgent(em, row.id);
+						return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'AED' }).format(total);
 					}),
 				ToggleColumn.make('active').label('Active').sortable(),
 				TextColumn.make('createdAt').label('Created').sortable().dateTime(),
@@ -108,16 +110,6 @@ export class UserResource extends BaseResource {
 				.label('Collaborateurs Actifs')
 				.icon('UserCheck')
 				.render(async em => em.count(User, { active: true } as any)),
-
-			StatsWidget.make('users.caisseGlobale')
-				.label('Caisse Globale (Virtuelle)')
-				.icon('Wallet')
-				.currency('GNF')
-				.format('currency')
-				.render(async em => {
-					const rows = await em.find(Transaction, { status: { $in: ['pending', 'blocked'] } } as any);
-					return rows.reduce((sum: number, t: any) => sum + t.amount, 0);
-				}),
 		];
 	}
 }
