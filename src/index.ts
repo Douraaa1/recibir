@@ -24,24 +24,27 @@ import { seedSettings } from './seedSettings';
 import { seedExchangeRates } from './seedExchangeRates';
 import { sessionTimeoutMiddleware } from './middleware/sessionTimeout';
 import { frenchCsvExporter } from './utils/frenchCsvExporter';
+import { isAdminLike, isTeamLead } from './utils/roles';
 
-// Nav items that only make sense for the admin/manager role — hidden from
-// agents via the metadata filter hook registered below. "shifts",
-// "wrongful-debits" and "client-payments" are deliberately NOT here: agents
-// need those, just scoped to their own records (see the matching hooks).
-// "withdrawal-cycles" isn't here either — an agent needs to browse cycles
-// (read-only) to find the one their assigned shift belongs to; creation is
-// blocked for them via the capabilities filter hook below, not by hiding it.
-// "settings"/"exchange-rates" are `hidden` on the resource itself (embedded
-// in ParametresPage instead of their own nav entry). "parametres" isn't
-// admin-only either — agents need it too, for self-service 2FA (see
-// ParametresPage, which gates its Settings/Taux de Change blocks to admins
-// internally instead of hiding the whole page).
-const ADMIN_ONLY_RESOURCE_SLUGS = ['users', 'card-groups', 'cards'];
+// Nav items scoped narrower than "everyone" — hidden via the metadata filter
+// hook registered below. "shifts", "wrongful-debits" and "client-payments"
+// are deliberately NOT here: agents need those, just scoped to their own
+// records (see the matching hooks) — chef_equipe/superviseur/admin see the
+// whole Dubai team's. "withdrawal-cycles" isn't here either — everyone needs
+// to browse cycles (read-only at minimum) to find the one their shift
+// belongs to; creation is blocked below via the capabilities filter hook,
+// not by hiding it. "settings"/"exchange-rates" are `hidden` on the resource
+// itself (embedded in ParametresPage instead of their own nav entry).
+// "parametres" isn't admin-only either — every role needs it for
+// self-service 2FA (see ParametresPage, which gates its Settings/Taux de
+// Change blocks internally instead of hiding the whole page).
+const USER_MANAGEMENT_ONLY_RESOURCE_SLUGS = ['users'];
+const ADMIN_LIKE_ONLY_RESOURCE_SLUGS = ['card-groups', 'cards'];
 const ADMIN_ONLY_PAGE_SLUGS: string[] = [];
-// Dealing with the bank (requesting/confirming a refund) is an admin task —
-// the agent can report a wrongful debit, but not resolve it.
-const ADMIN_ONLY_ACTIONS = ['requestRefund', 'markRefunded'];
+// Dealing with the bank (requesting/confirming a refund) is an admin/
+// superviseur task — chef_equipe and agents can report a wrongful debit,
+// but not resolve it.
+const ADMIN_LIKE_ONLY_ACTIONS = ['requestRefund', 'markRefunded'];
 
 const PORT = parseInt(process.env.PORT || '3000');
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -104,21 +107,31 @@ const adminPanel = Panel.make('admin')
 	.pages([DashboardPage, ParametresPage])
 	.plugins([new TwoFactorPlugin({ issuer: 'RECIBIR' }), new CsvExportPlugin()]);
 
-// --- Admin vs Agent layout ---------------------------------------------
-// RECIBIR has exactly two roles (see the User entity's `role` column).
-// Rather than pulling in the full permissions plugin (built for many roles +
-// configurable permission sets), the two-role split is wired directly with
-// the panel's low-level filter/access hooks.
+// --- Role-based layout ---------------------------------------------------
+// RECIBIR has four roles (see the User entity's `role` column): admin,
+// superviseur (Conakry, admin-equivalent except user management),
+// chef_equipe (Dubaï team lead, team-wide visibility + client payments),
+// and agent (Dubaï, scoped to their own records). Rather than pulling in
+// the full permissions plugin (built for many roles + configurable
+// permission sets), the split is wired directly with the panel's low-level
+// filter/access hooks, using the isAdminLike/isTeamLead helpers so the same
+// role logic doesn't drift between here and the resource hooks.
 
 // registerMetadataFilterHook is a single slot (last call wins, they don't
 // stack) — every metadata tweak has to live in this one hook.
 adminPanel.registerMetadataFilterHook((metadata, user) => {
-	// Hide admin-only nav entries (e.g. "Collaborateurs", "Groupes de Cartes")
-	// from agents. Still enforced server-side by each resource's own hooks —
-	// this only controls the sidebar.
+	// Hide nav entries narrower than "everyone" (e.g. "Collaborateurs" is
+	// admin-only; "Groupes de Cartes"/"Cartes" are admin+superviseur). Still
+	// enforced server-side by each resource's own hooks — this only controls
+	// the sidebar.
 	if (user?.role !== 'admin') {
 		metadata.resources = metadata.resources.map(r =>
-			ADMIN_ONLY_RESOURCE_SLUGS.includes(r.slug) ? { ...r, hidden: true } : r,
+			USER_MANAGEMENT_ONLY_RESOURCE_SLUGS.includes(r.slug) ? { ...r, hidden: true } : r,
+		);
+	}
+	if (!isAdminLike(user?.role)) {
+		metadata.resources = metadata.resources.map(r =>
+			ADMIN_LIKE_ONLY_RESOURCE_SLUGS.includes(r.slug) ? { ...r, hidden: true } : r,
 		);
 		metadata.pages = metadata.pages.map(p =>
 			ADMIN_ONLY_PAGE_SLUGS.includes(p.slug) ? { ...p, hidden: true } : p,
@@ -133,39 +146,46 @@ adminPanel.registerMetadataFilterHook((metadata, user) => {
 	return metadata;
 });
 
-// Server-side guard matching the sidebar restriction above — blocks an agent
-// from loading Paramètres directly by URL, not just hiding the nav entry.
+// Server-side guard matching the sidebar restriction above — blocks a
+// non-admin-like user from loading an admin-only page directly by URL, not
+// just hiding the nav entry.
 adminPanel.registerPageAccessCheckHook((pageSlug, user) => {
 	if (ADMIN_ONLY_PAGE_SLUGS.includes(pageSlug)) {
-		return user?.role === 'admin';
+		return isAdminLike(user?.role);
 	}
 	return true;
 });
 
-// An agent needs to see Cycles de Retrait (to find their assigned shift's
-// context) but never create or edit one — only the admin does. Hides the
-// "New"/"Edit" buttons; withdrawalCycleHooks rejects the request either way.
+// Cycle creation/editing is admin+superviseur only — everyone else still
+// needs to browse Cycles de Retrait (read-only) to find their shift's
+// context. Client-payment creation is admin+superviseur+chef_equipe only —
+// a plain agent can't pay clients. Hides the relevant buttons;
+// withdrawalCycleHooks/clientPaymentHooks reject the request server-side
+// either way.
 adminPanel.registerCapabilitiesFilterHook((capabilities, resourceSlug, user) => {
-	if (resourceSlug === 'withdrawal-cycles' && user?.role !== 'admin') {
+	if (resourceSlug === 'withdrawal-cycles' && !isAdminLike(user?.role)) {
 		return { ...capabilities, canCreate: false, canEdit: false };
+	}
+	if (resourceSlug === 'client-payments' && !isAdminLike(user?.role) && !isTeamLead(user?.role)) {
+		return { ...capabilities, canCreate: false };
 	}
 	return capabilities;
 });
 
 // Strip the refund-lifecycle actions from the Débits à Tort table for
-// agents — they can report a wrongful debit, but resolving it with the bank
-// is the admin's job.
+// chef_equipe/agents — they can report a wrongful debit, but resolving it
+// with the bank is an admin/superviseur job.
 adminPanel.registerTableSchemaFilterHook((schema, resourceSlug, user) => {
-	if (resourceSlug === 'wrongful-debits' && user?.role !== 'admin' && schema.actions) {
-		schema.actions = schema.actions.filter((a: { name: string }) => !ADMIN_ONLY_ACTIONS.includes(a.name));
+	if (resourceSlug === 'wrongful-debits' && !isAdminLike(user?.role) && schema.actions) {
+		schema.actions = schema.actions.filter((a: { name: string }) => !ADMIN_LIKE_ONLY_ACTIONS.includes(a.name));
 	}
 	return schema;
 });
 
 // Server-side guard matching the UI restriction above (never trust the client).
 adminPanel.registerActionAccessCheckHook((actionName, resourceSlug, user) => {
-	if (resourceSlug === 'wrongful-debits' && ADMIN_ONLY_ACTIONS.includes(actionName)) {
-		return user?.role === 'admin';
+	if (resourceSlug === 'wrongful-debits' && ADMIN_LIKE_ONLY_ACTIONS.includes(actionName)) {
+		return isAdminLike(user?.role);
 	}
 	return true;
 });

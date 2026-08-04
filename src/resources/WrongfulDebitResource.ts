@@ -45,7 +45,23 @@ export class WrongfulDebitResource extends BaseResource {
 
 	static form() {
 		return FormBuilder.make().schema([
-			SelectInput.make('shift').label('Shift').relationship('shift', 'shiftNumber', 'shifts').required(),
+			SelectInput.make('shift')
+				.label('Shift')
+				.relationship('shift', 'shiftNumber', 'shifts')
+				.required()
+				// Plain shiftNumber alone renders as an indistinguishable "Shift
+				// 1"/"Shift 2" repeated for every cycle — pull in the group/cycle/
+				// date so each option is actually identifiable.
+				.formatOptionLabelUsing((_value: any, record: any) => {
+					const groupName = record?.cycle?.group?.name;
+					const cycleId = record?.cycle?.id ?? record?.cycle;
+					const dateStr = record?.date ? new Date(record.date).toLocaleDateString('fr-FR') : null;
+					// record.shiftNumber arrives already formatted as "Shift 1"/"Shift
+					// 2" (the options fetch reuses the table's own BadgeColumn
+					// formatting) — don't re-prefix it with "Shift" again here.
+					const parts = [groupName ?? (cycleId ? `Cycle #${cycleId}` : null), record?.shiftNumber, dateStr];
+					return parts.filter(Boolean).join(' — ');
+				}),
 			SelectInput.make('card').label('Carte').relationship('card', 'identifier', 'cards').required().searchable(),
 			TextInput.make('amountAED').label('Montant débité à tort (AED)').type('number').required().minValue(0.01),
 			DateTimePicker.make('date').label('Date').required().default(() => new Date().toISOString()),
@@ -62,6 +78,9 @@ export class WrongfulDebitResource extends BaseResource {
 				TextColumn.make('shiftGroup')
 					.label('Groupe')
 					.formatStateUsing((_: any, row: any) => row.shift?.cycle?.group?.name ?? '—'),
+				TextColumn.make('shiftCycle')
+					.label('Cycle')
+					.formatStateUsing((_: any, row: any) => (row.shift?.cycle ? `#${row.shift.cycle.id}` : '—')),
 				BadgeColumn.make('shiftRef')
 					.label('Shift')
 					.formatStateUsing((_: any, row: any) => (row.shift ? `Shift ${row.shift.shiftNumber}` : '—')),

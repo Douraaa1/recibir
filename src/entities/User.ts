@@ -1,6 +1,11 @@
 import { EntitySchema } from '@mikro-orm/core';
 
-export type UserRole = 'admin' | 'agent';
+// admin: full access, incl. managing Collaborateurs (the only thing superviseur lacks).
+// superviseur (Conakry): seconds the admin — same access everywhere except user mgmt.
+// chef_equipe (Dubaï): team lead — sees the whole Dubai team's shifts/debits/treasury
+// (not just their own, like a plain agent) and is the only non-admin role allowed to
+// pay clients. agent (Dubaï): scoped to their own shifts/debits/treasury.
+export type UserRole = 'admin' | 'superviseur' | 'chef_equipe' | 'agent';
 
 export interface IUser {
 	id: number;

@@ -2,6 +2,7 @@ import { Page, WidgetBlock, TableBlock, type Widget } from '@maxal_studio/kratos
 import { ShiftResource } from '../resources/ShiftResource';
 import { ClientPaymentResource } from '../resources/ClientPaymentResource';
 import { WrongfulDebitResource } from '../resources/WrongfulDebitResource';
+import { seesTeamWideData } from '../utils/roles';
 
 export class DashboardPage extends Page {
 	static slug = 'dashboard';
@@ -11,7 +12,10 @@ export class DashboardPage extends Page {
 
 	static async blocks() {
 		const context = this.getContext();
-		const isAdmin = context?.user?.role === 'admin';
+		// admin/superviseur/chef_equipe get the full team-wide dashboard; a
+		// plain agent gets just their own scoped treasury figure (see
+		// shifts.treasuryTotal's own role check) and shift list.
+		const isTeamView = seesTeamWideData(context?.user?.role);
 
 		const shiftWidgets: Widget[] = ShiftResource.widgets();
 		const paymentWidgets: Widget[] = ClientPaymentResource.widgets();
@@ -19,8 +23,8 @@ export class DashboardPage extends Page {
 		const w = (widgets: Widget[], name: string) => widgets.find(x => x.getName() === name)!;
 
 		const statBlocks = [
-			WidgetBlock.make(w(shiftWidgets, 'shifts.treasuryTotal')).columns(isAdmin ? 4 : 12),
-			...(isAdmin
+			WidgetBlock.make(w(shiftWidgets, 'shifts.treasuryTotal')).columns(isTeamView ? 4 : 12),
+			...(isTeamView
 				? [
 						WidgetBlock.make(w(debitWidgets, 'wrongfulDebits.total')).columns(4),
 						WidgetBlock.make(w(shiftWidgets, 'shifts.activeGroups')).columns(4),
@@ -37,17 +41,18 @@ export class DashboardPage extends Page {
 			...statBlocks,
 			// Envoyé / Attendu live on the cycle now — this is the shift-level
 			// execution detail (Retiré / Débit à tort / Trésorerie), sortable by
-			// date and exportable to CSV. Admins see every group and agent; an
-			// agent sees only the shifts assigned to them (server-scoped).
+			// date and exportable to CSV. Team-wide roles see every group and
+			// agent; a plain agent sees only the shifts assigned to them
+			// (server-scoped).
 			TableBlock.make(ShiftResource.table())
 				.dataUrl('shifts/list')
 				.columns(12)
 				.title('Suivi des Shifts')
-				.subtitle(isAdmin ? 'Tous les groupes et agents' : 'Mes shifts'),
+				.subtitle(isTeamView ? 'Tous les groupes et agents' : 'Mes shifts'),
 			// There's no native click-through from a stat card to a filtered list
 			// in this framework, so instead of a dead-end "Débits à Tort" number,
 			// the detail (groupe, carte, shift, montant, date) sits right below it.
-			...(isAdmin
+			...(isTeamView
 				? [
 						TableBlock.make(WrongfulDebitResource.table())
 							.dataUrl('wrongful-debits/list')

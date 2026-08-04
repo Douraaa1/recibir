@@ -12,6 +12,7 @@ import {
 } from '@maxal_studio/kratosjs';
 import { ClientPayment } from '../entities/ClientPayment';
 import { clientPaymentHooks } from '../hooks/clientPaymentHooks';
+import { isAdminLike } from '../utils/roles';
 
 function personName(value: any): string {
 	if (!value) return '—';
@@ -32,17 +33,23 @@ export class ClientPaymentResource extends BaseResource {
 	static canDelete = false;
 
 	static recordTitleAttribute = 'clientName';
-	static globallySearchableAttributes = ['clientName', 'clientPhone'];
+	static globallySearchableAttributes = ['clientName', 'code'];
 
 	static form() {
-		const isAdmin = this.getContext()?.user?.role === 'admin';
+		const isAdmin = isAdminLike(this.getContext()?.user?.role);
 		// Editable freely on create (by whoever pays the client); once saved the
-		// record is immutable for non-admins (enforced again in clientPaymentHooks).
+		// record is immutable for non-admin-like roles (enforced again in
+		// clientPaymentHooks).
 		const lockedOnEdit = (c: FormContext) => c?.operation === 'edit' && !isAdmin;
 
 		return FormBuilder.make().schema([
 			TextInput.make('clientName').label('Nom du client').required().min(2).max(120).disabled(lockedOnEdit),
-			TextInput.make('clientPhone').label('Téléphone du client').required().disabled(lockedOnEdit),
+			TextInput.make('code')
+				.label('Code (7 chiffres)')
+				.required()
+				.regex('^\\d{7}$')
+				.helperText('Code unique à 7 chiffres remis au client pour ce paiement.')
+				.disabled(lockedOnEdit),
 			TextInput.make('amountAED').label('Montant (AED)').type('number').required().minValue(1).disabled(lockedOnEdit),
 			Textarea.make('note').label('Note').rows(3).disabled(lockedOnEdit),
 			// Set from the logged-in user in beforeCreate — declared here only so
@@ -55,7 +62,7 @@ export class ClientPaymentResource extends BaseResource {
 		return TableBuilder.make()
 			.columns([
 				TextColumn.make('clientName').label('Client').sortable().searchable(),
-				TextColumn.make('clientPhone').label('Téléphone').searchable(),
+				TextColumn.make('code').label('Code').searchable(),
 				TextColumn.make('amountAED').label('Montant').money('AED').sortable(),
 				TextColumn.make('agent').label('Agent').formatStateUsing((v: any) => personName(v)),
 				TextColumn.make('createdAt').label('Date').sortable().dateTime(),

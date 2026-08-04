@@ -3,21 +3,22 @@ import {
 	FormBuilder,
 	TextInput,
 	SelectInput,
-	DateTimePicker,
+	HiddenInput,
 	TableBuilder,
 	TextColumn,
 	BadgeColumn,
 	DateFilter,
 	StatsWidget,
 	ChartWidget,
+	getRequestContext,
 	type Widget,
-	type FormContext,
 } from '@maxal_studio/kratosjs';
 import { Shift } from '../entities/Shift';
 import { WrongfulDebit } from '../entities/WrongfulDebit';
 import { ClientPayment } from '../entities/ClientPayment';
 import { User } from '../entities/User';
 import { shiftHooks } from '../hooks/shiftHooks';
+import { isAdminLike } from '../utils/roles';
 
 function personName(value: any): string {
 	if (!value) return '—';
@@ -49,15 +50,19 @@ export class ShiftResource extends BaseResource {
 	static globallySearchableAttributes = [];
 
 	static form() {
-		// Admin may reassign agent/date; an agent may only report what they
-		// withdrew on their own shift (mirrored server-side in shiftHooks).
-		const isAdmin = this.getContext()?.user?.role === 'admin';
+		// Admin/superviseur may reassign agent; everyone else may only report
+		// what they withdrew on their own shift (mirrored server-side in
+		// shiftHooks). No date field — it tracks the last withdrawal edit
+		// automatically (see shiftHooks).
+		const isAdmin = isAdminLike(this.getContext()?.user?.role);
 
 		return FormBuilder.make().schema([
 			SelectInput.make('agent').label('Agent (Dubaï)').relationship('agent', 'email', 'users').required().disabled(!isAdmin),
 			TextInput.make('shiftNumber').label('Shift (1 ou 2)').type('number').disabled(),
-			DateTimePicker.make('date').label('Date').required().disabled(!isAdmin),
 			TextInput.make('withdrawnAED').label('Montant retiré (AED)').type('number').required().minValue(0),
+			// Declared hidden only so the schema whitelist doesn't drop the
+			// hook-set value (shiftHooks stamps it on every withdrawnAED edit).
+			HiddenInput.make('date'),
 		]);
 	}
 
@@ -108,19 +113,34 @@ export class ShiftResource extends BaseResource {
 	static widgets(): Widget[] {
 		return [
 			// Net available treasury: withdrawn across all shifts, minus wrongful
-			// debits, minus what's already been paid out to clients.
+			// debits, minus what's already been paid out to clients. A plain agent
+			// only sees their own share; every other role sees the whole team's
+			// (admin/superviseur company-wide, chef_equipe Dubai-team-wide — same
+			// number here since this data is all Dubai-side anyway).
 			StatsWidget.make('shifts.treasuryTotal')
 				.label('Trésorerie Disponible')
 				.icon('Wallet')
 				.currency('AED')
 				.format('currency')
 				.render(async em => {
-					const shifts = await em.find(Shift, {} as any);
+					const role = getRequestContext()?.user?.role;
+					const scopeToSelf = role === 'agent';
+					const agentId = getRequestContext()?.user?.id;
+
+					const shiftFilter = scopeToSelf ? ({ agent: agentId } as any) : ({} as any);
+					const shifts = await em.find(Shift, shiftFilter);
 					const withdrawn = shifts.reduce((sum: number, s: any) => sum + s.withdrawnAED, 0);
-					const debits = await em.find(WrongfulDebit, { status: { $ne: 'refunded' } } as any);
+
+					const debitFilter = scopeToSelf
+						? ({ agent: agentId, status: { $ne: 'refunded' } } as any)
+						: ({ status: { $ne: 'refunded' } } as any);
+					const debits = await em.find(WrongfulDebit, debitFilter);
 					const wrongfulTotal = debits.reduce((sum: number, d: any) => sum + d.amountAED, 0);
-					const payments = await em.find(ClientPayment, {} as any);
+
+					const paymentFilter = scopeToSelf ? ({ agent: agentId } as any) : ({} as any);
+					const payments = await em.find(ClientPayment, paymentFilter);
 					const paidOut = payments.reduce((sum: number, p: any) => sum + p.amountAED, 0);
+
 					return withdrawn - wrongfulTotal - paidOut;
 				}),
 

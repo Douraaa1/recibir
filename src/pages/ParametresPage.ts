@@ -2,13 +2,15 @@ import { Page, FormBlock, TableBlock, type Block } from '@maxal_studio/kratosjs'
 import { TwoFactorSetupBlock } from '@maxal_studio/kratosjs-plugin-2fa';
 import { SettingResource } from '../resources/SettingResource';
 import { ExchangeRateResource } from '../resources/ExchangeRateResource';
+import { isAdminLike } from '../utils/roles';
 
-// Open to every logged-in user (not admin-only) so agents can still reach
-// two-factor setup — the 2FA plugin's own standalone page is hidden from nav
-// (see src/index.ts) in favor of embedding TwoFactorSetupBlock here, and
-// self-service 2FA has to stay reachable for both roles. The session-timeout
-// and exchange-rate blocks below are still business-wide config, so those
-// stay admin-only via the role check in blocks().
+// Open to every logged-in user (not admin-only) so every role can still
+// reach two-factor setup — the 2FA plugin's own standalone page is hidden
+// from nav (see src/index.ts) in favor of embedding TwoFactorSetupBlock
+// here, and self-service 2FA has to stay reachable for everyone. The
+// session-timeout and exchange-rate blocks below are still business-wide
+// config, so those stay admin/superviseur-only via the role check in
+// blocks().
 export class ParametresPage extends Page {
 	static slug = 'parametres';
 	static label = 'Paramètres';
@@ -17,7 +19,7 @@ export class ParametresPage extends Page {
 	static navigationSort = 1;
 
 	static async blocks() {
-		const isAdmin = this.getContext()?.user?.role === 'admin';
+		const isAdmin = isAdminLike(this.getContext()?.user?.role);
 
 		// No .title()/.subtitle() here — the block's own card already renders a
 		// heading + description (translated via the '2fa' catalog in src/index.ts).

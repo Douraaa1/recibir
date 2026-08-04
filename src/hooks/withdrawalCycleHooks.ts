@@ -2,12 +2,13 @@ import type { ResourceHooks, HookContext } from '@maxal_studio/kratosjs';
 import { Shift } from '../entities/Shift';
 import { CardGroup } from '../entities/CardGroup';
 import { coerceNumericFields } from '../utils/coerceNumeric';
+import { isAdminLike } from '../utils/roles';
 
 export const withdrawalCycleHooks: ResourceHooks = {
 	beforeCreate: [
 		async (ctx: HookContext) => {
-			if (ctx.user?.role !== 'admin') {
-				throw new Error("Seul l'administrateur peut créer un cycle de retrait.");
+			if (!isAdminLike(ctx.user?.role)) {
+				throw new Error("Seuls l'administrateur et le superviseur peuvent créer un cycle de retrait.");
 			}
 			const data = ctx.input.data?.[0];
 			if (!data) return;
@@ -15,6 +16,8 @@ export const withdrawalCycleHooks: ResourceHooks = {
 			// Attendu is entered directly by the admin — kept as a round AED
 			// number rather than derived from the exchange rate.
 			if (data.expectedAED !== undefined) data.expectedAED = Math.round(Number(data.expectedAED));
+			// Always today — no date picker on the form (see WithdrawalCycleResource).
+			data.date = new Date();
 
 			const em = (ctx.adapter as any).getEm().fork();
 			const groupId = data.group?.id ?? data.group;
@@ -43,8 +46,8 @@ export const withdrawalCycleHooks: ResourceHooks = {
 	],
 	beforeUpdate: [
 		async (ctx: HookContext) => {
-			if (ctx.user?.role !== 'admin') {
-				throw new Error("Seul l'administrateur peut modifier un cycle de retrait.");
+			if (!isAdminLike(ctx.user?.role)) {
+				throw new Error("Seuls l'administrateur et le superviseur peuvent modifier un cycle de retrait.");
 			}
 			const data = ctx.input.data?.[0];
 			if (!data) return;

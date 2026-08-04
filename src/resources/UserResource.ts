@@ -19,7 +19,12 @@ import { Shift } from '../entities/Shift';
 import { WrongfulDebit } from '../entities/WrongfulDebit';
 import { userHooks } from '../hooks/userHooks';
 
-const ROLE_LABELS = { admin: 'Administrateur', agent: 'Agent (Dubaï)' };
+const ROLE_LABELS = {
+	admin: 'Administrateur',
+	superviseur: 'Superviseur (Conakry)',
+	chef_equipe: "Chef d'équipe (Dubaï)",
+	agent: 'Agent (Dubaï)',
+};
 
 // What this agent has actually netted across their own shifts (withdrawn
 // minus their own outstanding — not yet refunded — wrongful debits) — not

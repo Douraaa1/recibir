@@ -11,6 +11,7 @@ import {
 } from '@maxal_studio/kratosjs';
 import { CardGroup } from '../entities/CardGroup';
 import { Card } from '../entities/Card';
+import { cardGroupHooks } from '../hooks/cardGroupHooks';
 
 function personName(value: any): string {
 	if (!value) return '—';
@@ -62,5 +63,9 @@ export class CardGroupResource extends BaseResource {
 			.searchable()
 			.paginate(20)
 			.defaultSort('name', 'asc');
+	}
+
+	static hooks() {
+		return cardGroupHooks;
 	}
 }

@@ -5,9 +5,22 @@ const capitalize = (str: string | undefined): string => {
 	return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 };
 
+// Managing Collaborateurs (creating/editing accounts, assigning roles) is
+// admin-exclusive — not even superviseur, despite their otherwise
+// admin-equivalent access (see src/utils/roles.ts). The nav entry is already
+// hidden from everyone else (see index.ts); this is the server-side
+// backstop (never trust the client) — without it, any authenticated user
+// could hit the API directly and, e.g., promote themselves to admin.
+function assertAdmin(ctx: HookContext) {
+	if (ctx.user?.role !== 'admin') {
+		throw new Error("Seul l'administrateur peut gérer les collaborateurs.");
+	}
+}
+
 export const userHooks: ResourceHooks = {
 	beforeCreate: [
 		async (ctx: HookContext) => {
+			assertAdmin(ctx);
 			const data = ctx.input.data?.[0];
 			if (!data) return;
 
@@ -21,6 +34,7 @@ export const userHooks: ResourceHooks = {
 	],
 	beforeUpdate: [
 		async (ctx: HookContext) => {
+			assertAdmin(ctx);
 			const data = ctx.input.data?.[0];
 			if (!data) return;
 
