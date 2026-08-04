@@ -25,6 +25,10 @@ export class DashboardPage extends Page {
 						WidgetBlock.make(w(debitWidgets, 'wrongfulDebits.total')).columns(4),
 						WidgetBlock.make(w(shiftWidgets, 'shifts.activeGroups')).columns(4),
 						WidgetBlock.make(w(paymentWidgets, 'clientPayments.total')).columns(6),
+						// Same figure as Trésorerie Disponible above, split by agent —
+						// stat cards can't link through to a detail view, so this sits
+						// right below it instead.
+						WidgetBlock.make(w(shiftWidgets, 'shifts.treasuryByAgent')).columns(6),
 					]
 				: []),
 		];

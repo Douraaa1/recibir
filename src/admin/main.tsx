@@ -2,6 +2,7 @@ import { mountAdminPanel } from '@maxal_studio/kratosjs-react';
 import { pluginClients } from 'virtual:kratos-client';
 import twoFactorClient from '@maxal_studio/kratosjs-plugin-2fa/client';
 import '@maxal_studio/kratosjs-react/styles.css';
+import './brand.css';
 
 // `virtual:kratos-client` auto-imports the client manifest of every installed
 // KratosJs plugin (any dependency whose package.json declares a `kratosjs.client`

@@ -1,13 +1,4 @@
-import {
-	BaseResource,
-	FormBuilder,
-	TextInput,
-	SelectInput,
-	DateTimePicker,
-	TableBuilder,
-	TextColumn,
-	type FormContext,
-} from '@maxal_studio/kratosjs';
+import { BaseResource, FormBuilder, TextInput, SelectInput, DateTimePicker, TableBuilder, TextColumn } from '@maxal_studio/kratosjs';
 import { WithdrawalCycle } from '../entities/WithdrawalCycle';
 import { withdrawalCycleHooks } from '../hooks/withdrawalCycleHooks';
 
@@ -30,20 +21,13 @@ export class WithdrawalCycleResource extends BaseResource {
 		const isAdmin = this.getContext()?.user?.role === 'admin';
 
 		return FormBuilder.make().schema([
+			// No agent picker here — each group carries its own standing agent
+			// assignment (CardGroup.agent), which withdrawalCycleHooks reads to
+			// assign both auto-created shifts.
 			SelectInput.make('group').label('Groupe').relationship('group', 'name', 'card-groups').required().disabled(!isAdmin),
 			TextInput.make('sentGNF').label('Envoyé (GNF)').type('number').required().minValue(1).disabled(!isAdmin),
-			TextInput.make('expectedAED').label('Attendu (AED)').type('number').disabled(),
+			TextInput.make('expectedAED').label('Attendu (AED)').type('number').required().integer().minValue(1).disabled(!isAdmin),
 			DateTimePicker.make('date').label('Date').required().disabled(!isAdmin),
-			// Assigns both auto-created shifts up front — the same agent usually
-			// runs both, so one field covers it (reassign shift 2 individually
-			// afterwards from the Shift itself if it's ever split between two
-			// people). Consumed by withdrawalCycleHooks, never persisted here.
-			SelectInput.make('agent')
-				.label('Agent (Dubaï)')
-				.relationship('agent', 'email', 'users')
-				.required((c: FormContext) => c?.operation === 'create')
-				.hidden((c: FormContext) => c?.operation !== 'create')
-				.disabled(!isAdmin),
 		]);
 	}
 

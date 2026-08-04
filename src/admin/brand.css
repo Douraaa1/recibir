@@ -1,0 +1,8 @@
+/* The brand mark (assets/icon.png) is a dark charcoal glyph on a transparent
+   background — great on the light "surface" card, but low-contrast once that
+   same card goes dark (see PanelBrandMark.tsx: bg-surface flips to #151517,
+   barely different from the mark's own tone). Invert it in dark mode so the
+   glyph stays light-on-dark instead of dark-on-dark. */
+html.dark img[src$='/assets/icon.png'] {
+	filter: invert(1);
+}

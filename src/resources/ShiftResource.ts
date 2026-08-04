@@ -9,12 +9,14 @@ import {
 	BadgeColumn,
 	DateFilter,
 	StatsWidget,
+	ChartWidget,
 	type Widget,
 	type FormContext,
 } from '@maxal_studio/kratosjs';
 import { Shift } from '../entities/Shift';
 import { WrongfulDebit } from '../entities/WrongfulDebit';
 import { ClientPayment } from '../entities/ClientPayment';
+import { User } from '../entities/User';
 import { shiftHooks } from '../hooks/shiftHooks';
 
 function personName(value: any): string {
@@ -120,6 +122,29 @@ export class ShiftResource extends BaseResource {
 					const payments = await em.find(ClientPayment, {} as any);
 					const paidOut = payments.reduce((sum: number, p: any) => sum + p.amountAED, 0);
 					return withdrawn - wrongfulTotal - paidOut;
+				}),
+
+			// Same net-treasury formula as shifts.treasuryTotal, split by agent.
+			// StatsWidget cards have no native click-through to a detail view in
+			// this framework, so this sits alongside the total as a chart instead
+			// of behind a click.
+			ChartWidget.make('shifts.treasuryByAgent')
+				.label('Trésorerie par Agent')
+				.icon('Wallet')
+				.type('bar')
+				.render(async em => {
+					const agents = await em.find(User, { role: 'agent' } as any);
+					const results: { label: string; value: number }[] = [];
+					for (const agent of agents) {
+						const shifts = await em.find(Shift, { agent: agent.id } as any);
+						const withdrawn = shifts.reduce((sum: number, s: any) => sum + s.withdrawnAED, 0);
+						const debits = await em.find(WrongfulDebit, { agent: agent.id, status: { $ne: 'refunded' } } as any);
+						const wrongfulTotal = debits.reduce((sum: number, d: any) => sum + d.amountAED, 0);
+						const payments = await em.find(ClientPayment, { agent: agent.id } as any);
+						const paidOut = payments.reduce((sum: number, p: any) => sum + p.amountAED, 0);
+						results.push({ label: personName(agent), value: withdrawn - wrongfulTotal - paidOut });
+					}
+					return results;
 				}),
 
 			StatsWidget.make('shifts.activeGroups')
