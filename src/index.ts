@@ -25,23 +25,35 @@ import { seedExchangeRates } from './seedExchangeRates';
 import { sessionTimeoutMiddleware } from './middleware/sessionTimeout';
 import { frenchCsvExporter } from './utils/frenchCsvExporter';
 import { isAdminLike, isTeamLead } from './utils/roles';
+import { getPublicUrl } from './utils/publicUrl';
+import { registerPasswordSetupRoutes } from './routes/passwordSetup';
 import { coreFr } from './i18n/coreFr';
 import { csvExportFr } from './i18n/csvExportFr';
 
 // Nav items scoped narrower than "everyone" — hidden via the metadata filter
-// hook registered below. "shifts", "wrongful-debits" and "client-payments"
-// are deliberately NOT here: agents need those, just scoped to their own
-// records (see the matching hooks) — chef_equipe/superviseur/admin see the
-// whole Dubai team's. "withdrawal-cycles" isn't here either — everyone needs
-// to browse cycles (read-only at minimum) to find the one their shift
-// belongs to; creation is blocked below via the capabilities filter hook,
-// not by hiding it. "settings"/"exchange-rates" are `hidden` on the resource
+// hook registered below. "shifts" and "wrongful-debits" are deliberately NOT
+// here: agents need those, just scoped to their own records (see the
+// matching hooks) — chef_equipe/superviseur/admin see the whole Dubai
+// team's. "client-payments" IS here for a plain agent though — they can't
+// create or ever see anyone's payments (only admin/superviseur/chef_equipe
+// can, see clientPaymentHooks), so the nav entry would just be a dead end
+// for them. "withdrawal-cycles" isn't hidden for anyone — everyone needs to
+// browse cycles (read-only at minimum) to find the one their shift belongs
+// to; creation is blocked below via the capabilities filter hook, not by
+// hiding it. "settings"/"exchange-rates" are `hidden` on the resource
 // itself (embedded in ParametresPage instead of their own nav entry).
-// "parametres" isn't admin-only either — every role needs it for
-// self-service 2FA (see ParametresPage, which gates its Settings/Taux de
-// Change blocks internally instead of hiding the whole page).
-const USER_MANAGEMENT_ONLY_RESOURCE_SLUGS = ['users'];
+// "users" ("Collaborateurs") isn't embedded — a table embedded via
+// TableBlock in a Page never gets KratosJS's row-action `hasHandler`
+// enrichment (only a resource's own schema route does), which silently
+// breaks the password-setup-link action; it's a real nav entry instead,
+// just grouped next to Paramètres, and admin-exclusive (stricter than
+// ADMIN_LIKE_ONLY below — see assertAdmin in userHooks.ts) via
+// ADMIN_ONLY_RESOURCE_SLUGS. "parametres" isn't admin-only either — every
+// role needs it for self-service 2FA (see ParametresPage, which gates its
+// Settings/Taux de Change blocks internally instead of hiding the whole page).
 const ADMIN_LIKE_ONLY_RESOURCE_SLUGS = ['card-groups', 'cards'];
+const ADMIN_ONLY_RESOURCE_SLUGS = ['users'];
+const AGENT_HIDDEN_RESOURCE_SLUGS = ['client-payments'];
 const ADMIN_ONLY_PAGE_SLUGS: string[] = [];
 // Dealing with the bank (requesting/confirming a refund) is an admin/
 // superviseur task — chef_equipe and agents can report a wrongful debit,
@@ -54,9 +66,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 // (e.g. Render Disks) instead of the app's ephemeral local folder.
 const uploadsPath = process.env.UPLOADS_PATH || path.join(process.cwd(), 'uploads');
 const assetsPath = path.join(process.cwd(), 'assets');
-// Render sets RENDER_EXTERNAL_URL automatically; PUBLIC_URL is the manual
-// override (e.g. behind a custom domain). Falls back to localhost in dev.
-const publicUrl = process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+const publicUrl = getPublicUrl();
 
 // Postgres in production (Render sets DATABASE_URL on the managed database),
 // SQLite locally for zero-setup dev. Entities are driver-agnostic (plain
@@ -122,21 +132,26 @@ const adminPanel = Panel.make('admin')
 // registerMetadataFilterHook is a single slot (last call wins, they don't
 // stack) — every metadata tweak has to live in this one hook.
 adminPanel.registerMetadataFilterHook((metadata, user) => {
-	// Hide nav entries narrower than "everyone" (e.g. "Collaborateurs" is
-	// admin-only; "Groupes de Cartes"/"Cartes" are admin+superviseur). Still
-	// enforced server-side by each resource's own hooks — this only controls
-	// the sidebar.
-	if (user?.role !== 'admin') {
-		metadata.resources = metadata.resources.map(r =>
-			USER_MANAGEMENT_ONLY_RESOURCE_SLUGS.includes(r.slug) ? { ...r, hidden: true } : r,
-		);
-	}
+	// Hide nav entries narrower than "everyone" (e.g. "Groupes de Cartes"/
+	// "Cartes" are admin+superviseur; "Paiements Clients" is hidden from a
+	// plain agent, who can't create or see any). Still enforced server-side
+	// by each resource's own hooks — this only controls the sidebar.
 	if (!isAdminLike(user?.role)) {
 		metadata.resources = metadata.resources.map(r =>
 			ADMIN_LIKE_ONLY_RESOURCE_SLUGS.includes(r.slug) ? { ...r, hidden: true } : r,
 		);
 		metadata.pages = metadata.pages.map(p =>
 			ADMIN_ONLY_PAGE_SLUGS.includes(p.slug) ? { ...p, hidden: true } : p,
+		);
+	}
+	if (user?.role === 'agent') {
+		metadata.resources = metadata.resources.map(r =>
+			AGENT_HIDDEN_RESOURCE_SLUGS.includes(r.slug) ? { ...r, hidden: true } : r,
+		);
+	}
+	if (user?.role !== 'admin') {
+		metadata.resources = metadata.resources.map(r =>
+			ADMIN_ONLY_RESOURCE_SLUGS.includes(r.slug) ? { ...r, hidden: true } : r,
 		);
 	}
 	// The 2FA plugin registers its own standalone nav page ("Security" group)
@@ -278,6 +293,9 @@ adminPanel.route('get', '/', (_req, reply) =>
 		renderedAt: new Date().toISOString(),
 	}),
 );
+
+// First-login / SuperAdmin-forced password reset — see src/routes/passwordSetup.ts.
+registerPasswordSetupRoutes(adminPanel);
 
 adminPanel
 	.start(PORT, async () => {

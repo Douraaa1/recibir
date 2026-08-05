@@ -19,7 +19,8 @@ export class ParametresPage extends Page {
 	static navigationSort = 1;
 
 	static async blocks() {
-		const isAdmin = isAdminLike(this.getContext()?.user?.role);
+		const role = this.getContext()?.user?.role;
+		const isAdmin = isAdminLike(role);
 
 		// No .title()/.subtitle() here — the block's own card already renders a
 		// heading + description (translated via the '2fa' catalog in src/index.ts).
