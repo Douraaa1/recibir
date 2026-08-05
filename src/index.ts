@@ -25,6 +25,8 @@ import { seedExchangeRates } from './seedExchangeRates';
 import { sessionTimeoutMiddleware } from './middleware/sessionTimeout';
 import { frenchCsvExporter } from './utils/frenchCsvExporter';
 import { isAdminLike, isTeamLead } from './utils/roles';
+import { coreFr } from './i18n/coreFr';
+import { csvExportFr } from './i18n/csvExportFr';
 
 // Nav items scoped narrower than "everyone" — hidden via the metadata filter
 // hook registered below. "shifts", "wrongful-debits" and "client-payments"
@@ -190,16 +192,22 @@ adminPanel.registerActionAccessCheckHook((actionName, resourceSlug, user) => {
 	return true;
 });
 
-// No real i18n setup (no `.i18n()` call) — the app stays on the framework's
-// implicit single 'en' locale, so no language switcher ever appears. The 2FA
-// plugin's self-service setup UI and login challenge ship English-only text
-// though, so this overrides its 'en' catalog with French strings directly
-// (app-registered translations win over the plugin's own, same locale key —
-// last `registerTranslations` call for a given namespace+locale wins). Do
-// NOT introduce a real 'fr' locale here: declaring one via `.i18n({locales:
-// ['fr'], ...})` makes the framework's `supportedLngs` reject the fallback
-// to 'en' for every key we haven't translated (core chrome, csv-export,
-// etc.), so untranslated strings render as raw keys instead of English text.
+// French-only, no language switcher. `.i18n({ locales: ['en'] })` pins the
+// app to a single locale explicitly — without it, locale discovery kicks in
+// (see Panel.buildServerI18n) and picks up every locale any *plugin*
+// happens to ship a catalog for (e.g. csv-export ships an 'sq' one), which
+// silently made the LocaleSwitcher appear once more than one locale was
+// discovered. Do NOT introduce a real 'fr' locale here: declaring one via
+// `.i18n({ locales: ['fr'], ... })` makes the framework's `supportedLngs`
+// reject the fallback to 'en' for every key we haven't translated, so
+// untranslated strings would render as raw keys instead of readable text.
+// Translating everything under the 'en' key (below) — core chrome,
+// validation messages, csv-export, and the 2FA plugin's UI — is what
+// actually makes the whole app read as French, while staying on the
+// framework's single implicit locale.
+adminPanel.i18n({ locales: ['en'], defaultLocale: 'en', fallbackLocale: 'en' });
+adminPanel.registerTranslations('core', { en: coreFr });
+adminPanel.registerTranslations('csv-export', { en: csvExportFr });
 adminPanel.registerTranslations('2fa', {
 	en: {
 		'error.auth_required': 'Authentification requise',

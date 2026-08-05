@@ -13,7 +13,7 @@ const capitalize = (str: string | undefined): string => {
 // could hit the API directly and, e.g., promote themselves to admin.
 function assertAdmin(ctx: HookContext) {
 	if (ctx.user?.role !== 'admin') {
-		throw new Error("Seul l'administrateur peut gérer les collaborateurs.");
+		throw new Error('Seul SuperAdmin peut gérer les collaborateurs.');
 	}
 }
 

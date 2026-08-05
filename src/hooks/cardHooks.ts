@@ -14,7 +14,7 @@ async function assertIdentifierAvailable(em: any, identifier: string, excludeId?
 
 function assertAdminLike(ctx: HookContext) {
 	if (!isAdminLike(ctx.user?.role)) {
-		throw new Error("Seuls l'administrateur et le superviseur peuvent gérer les cartes.");
+		throw new Error('Seuls SuperAdmin et adminGN peuvent gérer les cartes.');
 	}
 }
 

@@ -20,7 +20,7 @@ export class CardResource extends BaseResource {
 		return FormBuilder.make().schema([
 			SelectInput.make('group').label('Groupe').relationship('group', 'name', 'card-groups').required(),
 			TextInput.make('identifier').label('Identifiant de la carte').required().max(60),
-			Toggle.make('active').label('Active').default(true),
+			Toggle.make('active').label('Actif').default(true),
 		]);
 	}
 
@@ -29,7 +29,7 @@ export class CardResource extends BaseResource {
 			.columns([
 				TextColumn.make('identifier').label('Identifiant').sortable().searchable(),
 				TextColumn.make('group').label('Groupe').formatStateUsing((v: any) => v?.name ?? '—'),
-				ToggleColumn.make('active').label('Active').sortable(),
+				ToggleColumn.make('active').label('Actif').sortable(),
 				TextColumn.make('createdAt').label('Créée le').sortable().dateTime(),
 			])
 			.populate([{ path: 'group' }])

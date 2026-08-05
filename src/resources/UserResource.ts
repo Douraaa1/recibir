@@ -19,11 +19,15 @@ import { Shift } from '../entities/Shift';
 import { WrongfulDebit } from '../entities/WrongfulDebit';
 import { userHooks } from '../hooks/userHooks';
 
+// Display labels only — the underlying role values stored in the DB and
+// used throughout the permission logic (see src/utils/roles.ts) stay
+// 'admin'/'superviseur'/'chef_equipe'/'agent' for stability; only what's
+// shown to the user changed.
 const ROLE_LABELS = {
-	admin: 'Administrateur',
-	superviseur: 'Superviseur (Conakry)',
-	chef_equipe: "Chef d'équipe (Dubaï)",
-	agent: 'Agent (Dubaï)',
+	admin: 'SuperAdmin',
+	superviseur: 'adminGN',
+	chef_equipe: 'adminEAU',
+	agent: 'agent',
 };
 
 // What this agent has actually netted across their own shifts (withdrawn
@@ -56,30 +60,30 @@ export class UserResource extends BaseResource {
 
 	static form() {
 		return FormBuilder.make().schema([
-			FileUpload.make('profileMediaImage').label('Profile Image').image(),
+			FileUpload.make('profileMediaImage').label('Photo de profil').image(),
 			TextInput.make('password')
-				.label('Password')
+				.label('Mot de passe')
 				.password()
 				.required((context: FormContext) => context?.operation === 'create')
 				.min(8)
 				.max(50)
 				.hidden((context: FormContext) => context?.operation === 'view'),
-			TextInput.make('firstname').label('First name').required().min(2).max(50),
-			TextInput.make('lastname').label('Last name').max(50),
-			TextInput.make('email').label('Email').email().required(),
-			TextInput.make('phone').label('Phone Number').placeholder('Enter phone number...'),
+			TextInput.make('firstname').label('Prénom').required().min(2).max(50),
+			TextInput.make('lastname').label('Nom').max(50),
+			TextInput.make('email').label('E-mail').email().required(),
+			TextInput.make('phone').label('Téléphone').placeholder('Entrez le numéro de téléphone...'),
 			SelectInput.make('role').label('Rôle').options(ROLE_LABELS).default('agent').required(),
-			Toggle.make('active').label('Active').default(true),
+			Toggle.make('active').label('Actif').default(true),
 		]);
 	}
 
 	static table() {
 		return TableBuilder.make()
 			.columns([
-				ImageColumn.make('profileMediaImage').label('Profile').circular(),
-				TextColumn.make('firstname').label('First name').sortable().searchable(),
-				TextColumn.make('lastname').label('Last name').sortable().searchable(),
-				TextColumn.make('email').label('Email').sortable().searchable(),
+				ImageColumn.make('profileMediaImage').label('Photo').circular(),
+				TextColumn.make('firstname').label('Prénom').sortable().searchable(),
+				TextColumn.make('lastname').label('Nom').sortable().searchable(),
+				TextColumn.make('email').label('E-mail').sortable().searchable(),
 				BadgeColumn.make('role')
 					.label('Rôle')
 					.formatStateUsing((value: string) => ROLE_LABELS[value as keyof typeof ROLE_LABELS] ?? value)
@@ -92,8 +96,8 @@ export class UserResource extends BaseResource {
 						const total = await netGeneratedByAgent(em, row.id);
 						return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'AED' }).format(total);
 					}),
-				ToggleColumn.make('active').label('Active').sortable(),
-				TextColumn.make('createdAt').label('Created').sortable().dateTime(),
+				ToggleColumn.make('active').label('Actif').sortable(),
+				TextColumn.make('createdAt').label('Créé le').sortable().dateTime(),
 			])
 			.searchable()
 			.paginate(10)

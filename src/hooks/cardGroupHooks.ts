@@ -6,7 +6,7 @@ import { isAdminLike } from '../utils/roles';
 // the server-side backstop (never trust the client).
 function assertAdminLike(ctx: HookContext) {
 	if (!isAdminLike(ctx.user?.role)) {
-		throw new Error("Seuls l'administrateur et le superviseur peuvent gérer les groupes de cartes.");
+		throw new Error('Seuls SuperAdmin et adminGN peuvent gérer les groupes de cartes.');
 	}
 }
 

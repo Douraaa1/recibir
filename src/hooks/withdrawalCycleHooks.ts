@@ -8,7 +8,7 @@ export const withdrawalCycleHooks: ResourceHooks = {
 	beforeCreate: [
 		async (ctx: HookContext) => {
 			if (!isAdminLike(ctx.user?.role)) {
-				throw new Error("Seuls l'administrateur et le superviseur peuvent créer un cycle de retrait.");
+				throw new Error('Seuls SuperAdmin et adminGN peuvent créer un cycle de retrait.');
 			}
 			const data = ctx.input.data?.[0];
 			if (!data) return;
@@ -47,7 +47,7 @@ export const withdrawalCycleHooks: ResourceHooks = {
 	beforeUpdate: [
 		async (ctx: HookContext) => {
 			if (!isAdminLike(ctx.user?.role)) {
-				throw new Error("Seuls l'administrateur et le superviseur peuvent modifier un cycle de retrait.");
+				throw new Error('Seuls SuperAdmin et adminGN peuvent modifier un cycle de retrait.');
 			}
 			const data = ctx.input.data?.[0];
 			if (!data) return;

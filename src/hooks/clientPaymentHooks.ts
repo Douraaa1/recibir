@@ -11,7 +11,7 @@ export const clientPaymentHooks: ResourceHooks = {
 			// filter hook in index.ts (which hides the "New" button); this is
 			// the server-side enforcement, never trust the client.
 			if (!isAdminLike(ctx.user?.role) && !isTeamLead(ctx.user?.role)) {
-				throw new Error("Seul le chef d'équipe peut enregistrer un paiement client.");
+				throw new Error('Seul adminEAU peut enregistrer un paiement client.');
 			}
 			const data = ctx.input.data?.[0];
 			if (!data) return;
@@ -35,7 +35,7 @@ export const clientPaymentHooks: ResourceHooks = {
 	beforeUpdate: [
 		async (ctx: HookContext) => {
 			if (!isAdminLike(ctx.user?.role)) {
-				throw new Error("Un paiement déjà enregistré ne peut être modifié que par l'administrateur ou le superviseur.");
+				throw new Error("Un paiement déjà enregistré ne peut être modifié que par SuperAdmin ou adminGN.");
 			}
 			coerceNumericFields(ctx.input.data?.[0] ?? {}, ['amountAED']);
 		},

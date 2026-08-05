@@ -42,7 +42,7 @@ export const wrongfulDebitHooks: ResourceHooks = {
 	beforeUpdate: [
 		async (ctx: HookContext) => {
 			if (!isAdminLike(ctx.user?.role)) {
-				throw new Error("Un débit à tort déjà enregistré ne peut être modifié que par l'administrateur ou le superviseur.");
+				throw new Error("Un débit à tort déjà enregistré ne peut être modifié que par SuperAdmin ou adminGN.");
 			}
 			coerceNumericFields(ctx.input.data?.[0] ?? {}, ['amountAED']);
 		},
