@@ -8,6 +8,7 @@ import {
 	TableBuilder,
 	TextColumn,
 	ToggleColumn,
+	t,
 } from '@maxal_studio/kratosjs';
 import { CardGroup } from '../entities/CardGroup';
 import { Card } from '../entities/Card';
@@ -23,10 +24,16 @@ export class CardGroupResource extends BaseResource {
 
 	static entity = CardGroup;
 
-	static label = 'Groupe de Cartes';
-	static pluralLabel = 'Groupes de Cartes';
+	static getLabel() {
+		return t('app:cardGroups.label');
+	}
+	static getPluralLabel() {
+		return t('app:cardGroups.pluralLabel');
+	}
 	static icon = 'Boxes';
-	static navigationGroup = 'Opérations';
+	static getNavigationGroup() {
+		return t('app:pages.operations');
+	}
 	static navigationSort = 2;
 
 	static recordTitleAttribute = 'name';
@@ -34,30 +41,30 @@ export class CardGroupResource extends BaseResource {
 
 	static form() {
 		return FormBuilder.make().schema([
-			TextInput.make('name').label('Nom du groupe').required().min(2).max(60),
+			TextInput.make('name').label(t('app:cardGroups.fields.name')).required().min(2).max(60),
 			SelectInput.make('agent')
-				.label('Agent assigné')
+				.label(t('app:cardGroups.fields.assignedAgent'))
 				.relationship('agent', 'email', 'users')
 				.required()
-				.helperText('Utilisé pour assigner automatiquement les shifts lors de la création des cycles de retrait.'),
-			Toggle.make('active').label('Actif').default(true),
-			Textarea.make('note').label('Note').rows(3),
+				.helperText(t('app:cardGroups.form.agent.helperText')),
+			Toggle.make('active').label(t('app:common.active')).default(true),
+			Textarea.make('note').label(t('app:common.note')).rows(3),
 		]);
 	}
 
 	static table() {
 		return TableBuilder.make()
 			.columns([
-				TextColumn.make('name').label('Nom').sortable().searchable(),
-				TextColumn.make('agent').label('Agent').formatStateUsing((v: any) => personName(v)),
+				TextColumn.make('name').label(t('app:cardGroups.columns.name')).sortable().searchable(),
+				TextColumn.make('agent').label(t('app:common.agent')).formatStateUsing((v: any) => personName(v)),
 				TextColumn.make('cardCount')
-					.label('Nb. cartes')
+					.label(t('app:cardGroups.columns.cardCount'))
 					.formatStateUsing(async (_: any, row: any) => {
 						const em = CardGroupResource.getPanel().getEm().fork();
 						return em.count(Card, { group: row.id } as any);
 					}),
-				ToggleColumn.make('active').label('Actif').sortable(),
-				TextColumn.make('createdAt').label('Créé le').sortable().dateTime(),
+				ToggleColumn.make('active').label(t('app:common.active')).sortable(),
+				TextColumn.make('createdAt').label(t('app:common.createdAt')).sortable().dateTime(),
 			])
 			.populate([{ path: 'agent' }])
 			.searchable()

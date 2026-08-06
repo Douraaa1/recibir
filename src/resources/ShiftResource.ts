@@ -11,6 +11,7 @@ import {
 	StatsWidget,
 	ChartWidget,
 	getRequestContext,
+	t,
 	type Widget,
 } from '@maxal_studio/kratosjs';
 import { Shift } from '../entities/Shift';
@@ -37,10 +38,16 @@ export class ShiftResource extends BaseResource {
 
 	static entity = Shift;
 
-	static label = 'Shift';
-	static pluralLabel = 'Suivi des Shifts';
+	static getLabel() {
+		return t('app:shifts.label');
+	}
+	static getPluralLabel() {
+		return t('app:shifts.pluralLabel');
+	}
 	static icon = 'Layers';
-	static navigationGroup = 'Opérations';
+	static getNavigationGroup() {
+		return t('app:pages.operations');
+	}
 	static navigationSort = 4;
 
 	// Always created in pairs by WithdrawalCycleResource — never standalone.
@@ -57,9 +64,13 @@ export class ShiftResource extends BaseResource {
 		const isAdmin = isAdminLike(this.getContext()?.user?.role);
 
 		return FormBuilder.make().schema([
-			SelectInput.make('agent').label('Agent (Dubaï)').relationship('agent', 'email', 'users').required().disabled(!isAdmin),
-			TextInput.make('shiftNumber').label('Shift (1 ou 2)').type('number').disabled(),
-			TextInput.make('withdrawnAED').label('Montant retiré (AED)').type('number').required().minValue(0),
+			SelectInput.make('agent')
+				.label(t('app:shifts.fields.agent'))
+				.relationship('agent', 'email', 'users')
+				.required()
+				.disabled(!isAdmin),
+			TextInput.make('shiftNumber').label(t('app:shifts.fields.shiftNumber')).type('number').disabled(),
+			TextInput.make('withdrawnAED').label(t('app:shifts.fields.withdrawnAED')).type('number').required().minValue(0),
 			// Declared hidden only so the schema whitelist doesn't drop the
 			// hook-set value (shiftHooks stamps it on every withdrawnAED edit).
 			HiddenInput.make('date'),
@@ -70,27 +81,27 @@ export class ShiftResource extends BaseResource {
 		return TableBuilder.make()
 			.columns([
 				TextColumn.make('cycleGroup')
-					.label('Groupe')
+					.label(t('app:common.group'))
 					.formatStateUsing((_: any, row: any) => row.cycle?.group?.name ?? '—'),
 				TextColumn.make('cycleRef')
-					.label('Cycle')
+					.label(t('app:shifts.columns.cycle'))
 					.formatStateUsing((_: any, row: any) => (row.cycle ? `#${row.cycle.id}` : '—')),
-				TextColumn.make('agent').label('Agent').formatStateUsing((v: any) => personName(v)),
+				TextColumn.make('agent').label(t('app:common.agent')).formatStateUsing((v: any) => personName(v)),
 				BadgeColumn.make('shiftNumber')
-					.label('Shift')
-					.formatStateUsing((v: number) => `Shift ${v}`)
+					.label(t('app:shifts.columns.shift'))
+					.formatStateUsing((v: number) => t('app:shifts.shiftBadge', { n: v }))
 					.sortable(),
-				TextColumn.make('date').label('Date').sortable().date(),
-				TextColumn.make('withdrawnAED').label('Retiré').money('AED').sortable(),
+				TextColumn.make('date').label(t('app:common.date')).sortable().date(),
+				TextColumn.make('withdrawnAED').label(t('app:shifts.columns.withdrawn')).money('AED').sortable(),
 				TextColumn.make('wrongfulDebitTotal')
-					.label('Débit à tort')
+					.label(t('app:shifts.columns.wrongfulDebit'))
 					.formatStateUsing(async (_: any, row: any) => {
 						const em = ShiftResource.getPanel().getEm().fork();
 						const total = await wrongfulDebitOutstandingForShift(em, row.id);
 						return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'AED' }).format(total);
 					}),
 				TextColumn.make('treasury')
-					.label('Trésorerie')
+					.label(t('app:shifts.columns.treasury'))
 					.formatStateUsing(async (_: any, row: any) => {
 						const em = ShiftResource.getPanel().getEm().fork();
 						const debit = await wrongfulDebitOutstandingForShift(em, row.id);
@@ -100,7 +111,7 @@ export class ShiftResource extends BaseResource {
 					}),
 			])
 			.populate([{ path: 'cycle', populate: { path: 'group' } }, { path: 'agent' }])
-			.filters([DateFilter.make('date').label('Mois / période')])
+			.filters([DateFilter.make('date').label(t('app:shifts.filters.period'))])
 			.exportable()
 			.paginate(20)
 			.defaultSort('date', 'desc');
@@ -118,7 +129,7 @@ export class ShiftResource extends BaseResource {
 			// (admin/superviseur company-wide, chef_equipe Dubai-team-wide — same
 			// number here since this data is all Dubai-side anyway).
 			StatsWidget.make('shifts.treasuryTotal')
-				.label('Trésorerie Disponible')
+				.label(t('app:shifts.widgets.treasuryTotal'))
 				.icon('Wallet')
 				.currency('AED')
 				.format('currency')
@@ -137,7 +148,12 @@ export class ShiftResource extends BaseResource {
 					const debits = await em.find(WrongfulDebit, debitFilter);
 					const wrongfulTotal = debits.reduce((sum: number, d: any) => sum + d.amountAED, 0);
 
-					const paymentFilter = scopeToSelf ? ({ agent: agentId } as any) : ({} as any);
+					// Only validated payments have actually left the treasury — a
+					// pending request or a refused/cancelled one never did (see
+					// ClientPaymentResource/clientPaymentActions.ts).
+					const paymentFilter = scopeToSelf
+						? ({ agent: agentId, status: 'validated' } as any)
+						: ({ status: 'validated' } as any);
 					const payments = await em.find(ClientPayment, paymentFilter);
 					const paidOut = payments.reduce((sum: number, p: any) => sum + p.amountAED, 0);
 
@@ -149,9 +165,10 @@ export class ShiftResource extends BaseResource {
 			// this framework, so this sits alongside the total as a chart instead
 			// of behind a click.
 			ChartWidget.make('shifts.treasuryByAgent')
-				.label('Trésorerie par Agent')
+				.label(t('app:shifts.widgets.treasuryByAgent'))
 				.icon('Wallet')
-				.type('bar')
+				.type('pie')
+				.showLegend()
 				.render(async em => {
 					const agents = await em.find(User, { role: 'agent' } as any);
 					const results: { label: string; value: number }[] = [];
@@ -160,7 +177,7 @@ export class ShiftResource extends BaseResource {
 						const withdrawn = shifts.reduce((sum: number, s: any) => sum + s.withdrawnAED, 0);
 						const debits = await em.find(WrongfulDebit, { agent: agent.id, status: { $ne: 'refunded' } } as any);
 						const wrongfulTotal = debits.reduce((sum: number, d: any) => sum + d.amountAED, 0);
-						const payments = await em.find(ClientPayment, { agent: agent.id } as any);
+						const payments = await em.find(ClientPayment, { agent: agent.id, status: 'validated' } as any);
 						const paidOut = payments.reduce((sum: number, p: any) => sum + p.amountAED, 0);
 						results.push({ label: personName(agent), value: withdrawn - wrongfulTotal - paidOut });
 					}
@@ -168,7 +185,7 @@ export class ShiftResource extends BaseResource {
 				}),
 
 			StatsWidget.make('shifts.activeGroups')
-				.label('Groupes Actifs')
+				.label(t('app:shifts.widgets.activeGroups'))
 				.icon('Layers')
 				.render(async em => {
 					const shifts = await em.find(Shift, {} as any, { populate: ['cycle', 'cycle.group'] });

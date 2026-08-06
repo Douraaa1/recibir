@@ -12,17 +12,21 @@ import {
 	ImageColumn,
 	StatsWidget,
 	Widget,
+	t,
 } from '@maxal_studio/kratosjs';
 import { User } from '../entities/User';
 import { Shift } from '../entities/Shift';
 import { WrongfulDebit } from '../entities/WrongfulDebit';
 import { userHooks } from '../hooks/userHooks';
 import { userRowActions, userActionHandlers } from '../actions/userActions';
+import { getPublicUrl } from '../utils/publicUrl';
 
 // Display labels only — the underlying role values stored in the DB and
 // used throughout the permission logic (see src/utils/roles.ts) stay
-// 'admin'/'superviseur'/'chef_equipe'/'agent' for stability; only what's
-// shown to the user changed.
+// 'admin'/'superviseur'/'chef_equipe'/'agent' for stability. These are
+// role codenames the user chose deliberately (not ordinary UI text), so
+// unlike everything else in this file they stay identical across locales —
+// no t() lookup, a plain module-level object is fine.
 const ROLE_LABELS = {
 	admin: 'SuperAdmin',
 	superviseur: 'adminGN',
@@ -47,8 +51,15 @@ export class UserResource extends BaseResource {
 
 	static entity = User;
 
-	static label = 'Collaborateur';
-	static pluralLabel = 'Collaborateurs';
+	// `label`/`pluralLabel` overridden as methods (not static fields) so they
+	// resolve t() against the current request's locale — a static field is
+	// frozen at class-definition time, before any request/locale exists.
+	static getLabel() {
+		return t('app:users.label');
+	}
+	static getPluralLabel() {
+		return t('app:users.pluralLabel');
+	}
 	static icon = 'Users';
 	// Grouped with Paramètres (not a standalone top-level section) so it
 	// reads as part of "settings" in the sidebar — a TableBlock embed inside
@@ -58,7 +69,9 @@ export class UserResource extends BaseResource {
 	// via TableBlock never gets that, so every row action (including "Lien
 	// de configuration du mot de passe") silently no-ops. Keeping this as
 	// the resource's real route is what makes those actions work at all.
-	static navigationGroup = 'Système';
+	static getNavigationGroup() {
+		return t('app:pages.system');
+	}
 	static navigationSort = 2;
 
 	static recordTitleAttribute = (record: any) =>
@@ -72,29 +85,29 @@ export class UserResource extends BaseResource {
 		// configuration du mot de passe" row action (src/actions/userActions.ts),
 		// which the collaborator uses to choose their own.
 		return FormBuilder.make().schema([
-			FileUpload.make('profileMediaImage').label('Photo de profil').image(),
-			TextInput.make('firstname').label('Prénom').required().min(2).max(50),
-			TextInput.make('lastname').label('Nom').max(50),
-			TextInput.make('email').label('E-mail').email().required(),
-			TextInput.make('phone').label('Téléphone').placeholder('Entrez le numéro de téléphone...'),
-			SelectInput.make('role').label('Rôle').options(ROLE_LABELS).default('agent').required(),
-			Toggle.make('active').label('Actif').default(true),
+			FileUpload.make('profileMediaImage').label(t('app:users.form.profileMediaImage.label')).image(),
+			TextInput.make('firstname').label(t('app:users.fields.firstname')).required().min(2).max(50),
+			TextInput.make('lastname').label(t('app:users.fields.lastname')).max(50),
+			TextInput.make('email').label(t('app:users.fields.email')).email().required(),
+			TextInput.make('phone').label(t('app:users.fields.phone')).placeholder(t('app:users.form.phone.placeholder')),
+			SelectInput.make('role').label(t('app:users.fields.role')).options(ROLE_LABELS).default('agent').required(),
+			Toggle.make('active').label(t('app:common.active')).default(true),
 		]);
 	}
 
 	static table() {
 		return TableBuilder.make()
 			.columns([
-				ImageColumn.make('profileMediaImage').label('Photo').circular(),
-				TextColumn.make('firstname').label('Prénom').sortable().searchable(),
-				TextColumn.make('lastname').label('Nom').sortable().searchable(),
-				TextColumn.make('email').label('E-mail').sortable().searchable(),
+				ImageColumn.make('profileMediaImage').label(t('app:users.columns.photo')).circular(),
+				TextColumn.make('firstname').label(t('app:users.fields.firstname')).sortable().searchable(),
+				TextColumn.make('lastname').label(t('app:users.fields.lastname')).sortable().searchable(),
+				TextColumn.make('email').label(t('app:users.fields.email')).sortable().searchable(),
 				BadgeColumn.make('role')
-					.label('Rôle')
+					.label(t('app:users.fields.role'))
 					.formatStateUsing((value: string) => ROLE_LABELS[value as keyof typeof ROLE_LABELS] ?? value)
 					.sortable(),
 				TextColumn.make('netGenerated')
-					.label('Net généré (AED)')
+					.label(t('app:users.columns.netGenerated'))
 					.formatStateUsing(async (_value: any, row: any) => {
 						if (row.role !== 'agent') return '—';
 						const em = UserResource.getPanel().getEm().fork();
@@ -102,21 +115,35 @@ export class UserResource extends BaseResource {
 						return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'AED' }).format(total);
 					}),
 				TextColumn.make('passwordStatus')
-					.label('Mot de passe')
+					.label(t('app:users.columns.passwordStatus'))
 					.formatStateUsing(async (_value: any, row: any) => {
 						// Raw query, not the already-serialized `row` — `password`/
 						// `passwordSetupToken` are `hidden: true` on the entity (never
 						// sent to the client), so they aren't on `row` at all.
 						const em = UserResource.getPanel().getEm().fork();
 						const user: any = await em.findOne(User, { id: row.id });
-						if (user?.password) return 'Configuré';
+						if (user?.password) return t('app:users.status.configured');
 						if (user?.passwordSetupToken && user.passwordSetupExpiresAt && user.passwordSetupExpiresAt.getTime() > Date.now()) {
-							return 'Lien envoyé (en attente)';
+							return t('app:users.status.linkSent');
 						}
-						return 'À configurer';
+						return t('app:users.status.toConfigure');
 					}),
-				ToggleColumn.make('active').label('Actif').sortable(),
-				TextColumn.make('createdAt').label('Créé le').sortable().dateTime(),
+				// Toasts vanish after a few seconds with no way to copy the link —
+				// this makes the current link durably visible/selectable for as
+				// long as it's valid (48h), instead of only right after clicking
+				// "Générer un lien" (see userActions.ts's generatePasswordLink).
+				TextColumn.make('passwordSetupLink')
+					.label(t('app:users.columns.passwordSetupLink'))
+					.formatStateUsing(async (_value: any, row: any) => {
+						const em = UserResource.getPanel().getEm().fork();
+						const user: any = await em.findOne(User, { id: row.id });
+						const valid =
+							user?.passwordSetupToken && user.passwordSetupExpiresAt && user.passwordSetupExpiresAt.getTime() > Date.now();
+						if (!valid) return '—';
+						return `${getPublicUrl()}/set-password?token=${user.passwordSetupToken}`;
+					}),
+				ToggleColumn.make('active').label(t('app:common.active')).sortable(),
+				TextColumn.make('createdAt').label(t('app:common.createdAt')).sortable().dateTime(),
 			])
 			.actions(userRowActions())
 			.searchable()
@@ -135,12 +162,12 @@ export class UserResource extends BaseResource {
 	static widgets(): Widget[] {
 		return [
 			StatsWidget.make('users.totalUsers')
-				.label('Total Utilisateurs')
+				.label(t('app:users.widgets.totalUsers'))
 				.icon('Users')
 				.render(async (em, entity) => em.count(entity, {})),
 
 			StatsWidget.make('users.activeAgents')
-				.label('Collaborateurs Actifs')
+				.label(t('app:users.widgets.activeAgents'))
 				.icon('UserCheck')
 				.render(async em => em.count(User, { active: true } as any)),
 		];

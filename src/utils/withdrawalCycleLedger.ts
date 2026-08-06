@@ -1,3 +1,4 @@
+import { t } from '@maxal_studio/kratosjs';
 import { Shift } from '../entities/Shift';
 import { WrongfulDebit } from '../entities/WrongfulDebit';
 import { WithdrawalCycle } from '../entities/WithdrawalCycle';
@@ -38,7 +39,10 @@ export async function assertWithinExpected(
 	const projected = usage.total + (deltas.withdrawnDelta ?? 0) + (deltas.wrongfulDebitDelta ?? 0);
 	if (projected > usage.expectedAED + 0.01) {
 		throw new Error(
-			`Le total retiré + débits à tort (${projected.toFixed(2)} AED) dépasserait l'Attendu du cycle (${usage.expectedAED.toFixed(2)} AED).`,
+			t('app:withdrawalCycles.errors.exceedsExpected', {
+				projected: projected.toFixed(2),
+				expected: usage.expectedAED.toFixed(2),
+			}),
 		);
 	}
 }

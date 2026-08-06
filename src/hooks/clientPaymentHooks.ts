@@ -1,43 +1,73 @@
-import type { ResourceHooks, HookContext } from '@maxal_studio/kratosjs';
+import { t, type ResourceHooks, type HookContext } from '@maxal_studio/kratosjs';
 import { ClientPayment } from '../entities/ClientPayment';
 import { coerceNumericFields } from '../utils/coerceNumeric';
-import { isAdminLike, isTeamLead, seesTeamWideData } from '../utils/roles';
+import { isAdminLike, seesTeamWideData } from '../utils/roles';
+
+const CODE_GENERATION_RETRIES = 3;
+
+async function generateUniqueCode(em: any): Promise<string> {
+	for (let attempt = 0; attempt < CODE_GENERATION_RETRIES; attempt++) {
+		const count = await em.count(ClientPayment, {});
+		const code = `env-${String(count + 1 + attempt).padStart(4, '0')}`;
+		const existing = await em.findOne(ClientPayment, { code });
+		if (!existing) return code;
+	}
+	// Extremely unlikely (would need concurrent creates on every retry) — a
+	// timestamp suffix guarantees uniqueness even in that case.
+	return `env-${Date.now()}`;
+}
 
 export const clientPaymentHooks: ResourceHooks = {
 	beforeCreate: [
 		async (ctx: HookContext) => {
-			// Not every agent can pay clients — only the Dubai team lead
-			// (chef_equipe) and admin/superviseur. Mirrors the capabilities
-			// filter hook in index.ts (which hides the "New" button); this is
-			// the server-side enforcement, never trust the client.
-			if (!isAdminLike(ctx.user?.role) && !isTeamLead(ctx.user?.role)) {
-				throw new Error('Seul adminEAU peut enregistrer un paiement client.');
+			// AdminGN initiates payments now — chef_equipe's role moved to
+			// validating/refusing them (see clientPaymentActions.ts), not
+			// creating them. Mirrors withdrawalCycleHooks' exact rule.
+			if (!isAdminLike(ctx.user?.role)) {
+				throw new Error(t('app:clientPayments.errors.createAdminLikeOnly'));
 			}
 			const data = ctx.input.data?.[0];
 			if (!data) return;
 			coerceNumericFields(data, ['amountAED']);
 			data.agent = ctx.user?.id;
+			data.status = 'pending';
 
-			// Backstops the entity-level `unique: true` on `code` with a readable
-			// error instead of a raw driver constraint violation.
-			if (data.code) {
-				const em = (ctx.adapter as any).getEm().fork();
-				const existing = await em.findOne(ClientPayment, { code: data.code });
-				if (existing) {
-					throw new Error('Ce code a déjà été utilisé pour un autre paiement.');
-				}
-			}
+			const em = (ctx.adapter as any).getEm().fork();
+			data.code = await generateUniqueCode(em);
 		},
 	],
-	// Immutable once created — a payment already handed to a client shouldn't
-	// be edited after the fact, even by whoever logged it (chef_equipe's
-	// extra privileges don't include editing others' records).
+	// Tiered by status: nothing's been debited yet while pending, so the
+	// creator-equivalent role (isAdminLike) can still fix/cancel it; once
+	// AdminEAU validates it (treasury debited), only SuperAdmin exactly can
+	// touch it; refused/cancelled are terminal for everyone.
 	beforeUpdate: [
 		async (ctx: HookContext) => {
-			if (!isAdminLike(ctx.user?.role)) {
-				throw new Error("Un paiement déjà enregistré ne peut être modifié que par SuperAdmin ou adminGN.");
+			const id = ctx.input.ids?.[0];
+			const data = ctx.input.data?.[0];
+			if (!id || !data) return;
+
+			const em = (ctx.adapter as any).getEm().fork();
+			const existing = await em.findOne(ClientPayment, { id });
+			if (!existing) throw new Error(t('app:clientPayments.errors.notFound'));
+
+			if (existing.status === 'pending') {
+				if (!isAdminLike(ctx.user?.role)) {
+					throw new Error(t('app:clientPayments.errors.updatePendingAdminLikeOnly'));
+				}
+			} else if (existing.status === 'validated') {
+				if (ctx.user?.role !== 'admin') {
+					throw new Error(t('app:clientPayments.errors.updateValidatedAdminOnly'));
+				}
+			} else {
+				throw new Error(t('app:clientPayments.errors.updateTerminal'));
 			}
-			coerceNumericFields(ctx.input.data?.[0] ?? {}, ['amountAED']);
+
+			coerceNumericFields(data, ['amountAED']);
+			// Status/code/agent are only ever changed via clientPaymentActions.ts
+			// (validate/refuse/cancel) or beforeCreate, never through a plain edit.
+			delete data.status;
+			delete data.code;
+			delete data.agent;
 		},
 	],
 	// A plain agent only ever sees their own payments (though in practice they

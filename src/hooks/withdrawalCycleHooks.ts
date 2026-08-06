@@ -1,4 +1,4 @@
-import type { ResourceHooks, HookContext } from '@maxal_studio/kratosjs';
+import { t, type ResourceHooks, type HookContext } from '@maxal_studio/kratosjs';
 import { Shift } from '../entities/Shift';
 import { CardGroup } from '../entities/CardGroup';
 import { coerceNumericFields } from '../utils/coerceNumeric';
@@ -8,7 +8,7 @@ export const withdrawalCycleHooks: ResourceHooks = {
 	beforeCreate: [
 		async (ctx: HookContext) => {
 			if (!isAdminLike(ctx.user?.role)) {
-				throw new Error('Seuls SuperAdmin et adminGN peuvent créer un cycle de retrait.');
+				throw new Error(t('app:withdrawalCycles.errors.createAdminLikeOnly'));
 			}
 			const data = ctx.input.data?.[0];
 			if (!data) return;
@@ -23,7 +23,7 @@ export const withdrawalCycleHooks: ResourceHooks = {
 			const groupId = data.group?.id ?? data.group;
 			const group = groupId ? await em.findOne(CardGroup, { id: groupId }) : null;
 			if (!group?.agent) {
-				throw new Error("Ce groupe n'a pas d'agent assigné — assigne-lui un agent avant de créer un cycle.");
+				throw new Error(t('app:withdrawalCycles.errors.noAgentAssigned'));
 			}
 			(ctx as any).__agent = group.agent;
 		},
@@ -47,7 +47,7 @@ export const withdrawalCycleHooks: ResourceHooks = {
 	beforeUpdate: [
 		async (ctx: HookContext) => {
 			if (!isAdminLike(ctx.user?.role)) {
-				throw new Error('Seuls SuperAdmin et adminGN peuvent modifier un cycle de retrait.');
+				throw new Error(t('app:withdrawalCycles.errors.updateAdminLikeOnly'));
 			}
 			const data = ctx.input.data?.[0];
 			if (!data) return;

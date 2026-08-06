@@ -27,27 +27,30 @@ import { frenchCsvExporter } from './utils/frenchCsvExporter';
 import { isAdminLike, isTeamLead } from './utils/roles';
 import { getPublicUrl } from './utils/publicUrl';
 import { registerPasswordSetupRoutes } from './routes/passwordSetup';
+import { registerClientPaymentReceiptRoute } from './routes/clientPaymentReceipt';
 import { coreFr } from './i18n/coreFr';
 import { csvExportFr } from './i18n/csvExportFr';
+import { appFr } from './i18n/appFr';
+import { appEn } from './i18n/appEn';
 
 // Nav items scoped narrower than "everyone" — hidden via the metadata filter
 // hook registered below. "shifts" and "wrongful-debits" are deliberately NOT
 // here: agents need those, just scoped to their own records (see the
 // matching hooks) — chef_equipe/superviseur/admin see the whole Dubai
 // team's. "client-payments" IS here for a plain agent though — they can't
-// create or ever see anyone's payments (only admin/superviseur/chef_equipe
-// can, see clientPaymentHooks), so the nav entry would just be a dead end
-// for them. "withdrawal-cycles" isn't hidden for anyone — everyone needs to
-// browse cycles (read-only at minimum) to find the one their shift belongs
-// to; creation is blocked below via the capabilities filter hook, not by
-// hiding it. "settings"/"exchange-rates" are `hidden` on the resource
-// itself (embedded in ParametresPage instead of their own nav entry).
-// "users" ("Collaborateurs") isn't embedded — a table embedded via
-// TableBlock in a Page never gets KratosJS's row-action `hasHandler`
-// enrichment (only a resource's own schema route does), which silently
-// breaks the password-setup-link action; it's a real nav entry instead,
-// just grouped next to Paramètres, and admin-exclusive (stricter than
-// ADMIN_LIKE_ONLY below — see assertAdmin in userHooks.ts) via
+// create or ever see anyone's payments (only admin/superviseur initiate one,
+// chef_equipe validates/refuses it — see clientPaymentHooks), so the nav
+// entry would just be a dead end for them. "withdrawal-cycles" isn't hidden
+// for anyone — everyone needs to browse cycles (read-only at minimum) to
+// find the one their shift belongs to; creation is blocked below via the
+// capabilities filter hook, not by hiding it. "settings"/"exchange-rates"
+// are `hidden` on the resource itself (embedded in ParametresPage instead
+// of their own nav entry). "users" ("Collaborateurs") isn't embedded — a
+// table embedded via TableBlock in a Page never gets KratosJS's row-action
+// `hasHandler` enrichment (only a resource's own schema route does), which
+// silently breaks the password-setup-link action; it's a real nav entry
+// instead, just grouped next to Paramètres, and admin-exclusive (stricter
+// than ADMIN_LIKE_ONLY below — see assertAdmin in userHooks.ts) via
 // ADMIN_ONLY_RESOURCE_SLUGS. "parametres" isn't admin-only either — every
 // role needs it for self-service 2FA (see ParametresPage, which gates its
 // Settings/Taux de Change blocks internally instead of hiding the whole page).
@@ -58,7 +61,18 @@ const ADMIN_ONLY_PAGE_SLUGS: string[] = [];
 // Dealing with the bank (requesting/confirming a refund) is an admin/
 // superviseur task — chef_equipe and agents can report a wrongful debit,
 // but not resolve it.
-const ADMIN_LIKE_ONLY_ACTIONS = ['requestRefund', 'markRefunded'];
+const ADMIN_LIKE_ONLY_ACTIONS = ['requestRefund', 'markRefunded', 'markRefused'];
+// Validating/refusing a client payment (and downloading its receipt) is
+// AdminEAU's (chef_equipe) job, same tier as admin-like — creating one is
+// admin-like only (see the capabilities filter hook below). Cancelling is
+// narrower still: any admin-like role while a payment is still pending, but
+// only SuperAdmin exactly once it's validated — that finer per-record
+// distinction can't be expressed by this coarse action-name gate (there's
+// no per-row action visibility in this framework), so it's enforced inside
+// clientPaymentActions.ts's cancelPayment handler instead; this gate just
+// covers "could this role ever be allowed to cancel something."
+const CLIENT_PAYMENT_TEAM_ACTIONS = ['validatePayment', 'refusePayment', 'downloadReceipt'];
+const CLIENT_PAYMENT_ADMIN_LIKE_ACTIONS = ['cancelPayment'];
 
 const PORT = parseInt(process.env.PORT || '3000');
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -175,15 +189,16 @@ adminPanel.registerPageAccessCheckHook((pageSlug, user) => {
 
 // Cycle creation/editing is admin+superviseur only — everyone else still
 // needs to browse Cycles de Retrait (read-only) to find their shift's
-// context. Client-payment creation is admin+superviseur+chef_equipe only —
-// a plain agent can't pay clients. Hides the relevant buttons;
-// withdrawalCycleHooks/clientPaymentHooks reject the request server-side
-// either way.
+// context. Client-payment creation (initiating a payment) is admin+
+// superviseur only now — chef_equipe's role moved to validating/refusing
+// what AdminGN initiates, not creating payments themselves. Hides the
+// relevant buttons; withdrawalCycleHooks/clientPaymentHooks reject the
+// request server-side either way.
 adminPanel.registerCapabilitiesFilterHook((capabilities, resourceSlug, user) => {
 	if (resourceSlug === 'withdrawal-cycles' && !isAdminLike(user?.role)) {
 		return { ...capabilities, canCreate: false, canEdit: false };
 	}
-	if (resourceSlug === 'client-payments' && !isAdminLike(user?.role) && !isTeamLead(user?.role)) {
+	if (resourceSlug === 'client-payments' && !isAdminLike(user?.role)) {
 		return { ...capabilities, canCreate: false };
 	}
 	return capabilities;
@@ -191,10 +206,20 @@ adminPanel.registerCapabilitiesFilterHook((capabilities, resourceSlug, user) => 
 
 // Strip the refund-lifecycle actions from the Débits à Tort table for
 // chef_equipe/agents — they can report a wrongful debit, but resolving it
-// with the bank is an admin/superviseur job.
+// with the bank is an admin/superviseur job. Same idea for client payments:
+// validate/refuse/download-receipt need admin-like-or-team-lead, cancel
+// needs admin-like (cancelPayment's finer validated-only-SuperAdmin rule is
+// enforced inside the handler — see the constant's own comment above).
 adminPanel.registerTableSchemaFilterHook((schema, resourceSlug, user) => {
 	if (resourceSlug === 'wrongful-debits' && !isAdminLike(user?.role) && schema.actions) {
 		schema.actions = schema.actions.filter((a: { name: string }) => !ADMIN_LIKE_ONLY_ACTIONS.includes(a.name));
+	}
+	if (resourceSlug === 'client-payments' && schema.actions) {
+		schema.actions = schema.actions.filter((a: { name: string }) => {
+			if (CLIENT_PAYMENT_TEAM_ACTIONS.includes(a.name)) return isAdminLike(user?.role) || isTeamLead(user?.role);
+			if (CLIENT_PAYMENT_ADMIN_LIKE_ACTIONS.includes(a.name)) return isAdminLike(user?.role);
+			return true;
+		});
 	}
 	return schema;
 });
@@ -204,6 +229,10 @@ adminPanel.registerActionAccessCheckHook((actionName, resourceSlug, user) => {
 	if (resourceSlug === 'wrongful-debits' && ADMIN_LIKE_ONLY_ACTIONS.includes(actionName)) {
 		return isAdminLike(user?.role);
 	}
+	if (resourceSlug === 'client-payments') {
+		if (CLIENT_PAYMENT_TEAM_ACTIONS.includes(actionName)) return isAdminLike(user?.role) || isTeamLead(user?.role);
+		if (CLIENT_PAYMENT_ADMIN_LIKE_ACTIONS.includes(actionName)) return isAdminLike(user?.role);
+	}
 	return true;
 });
 
@@ -212,19 +241,20 @@ adminPanel.registerActionAccessCheckHook((actionName, resourceSlug, user) => {
 // (see Panel.buildServerI18n) and picks up every locale any *plugin*
 // happens to ship a catalog for (e.g. csv-export ships an 'sq' one), which
 // silently made the LocaleSwitcher appear once more than one locale was
-// discovered. Do NOT introduce a real 'fr' locale here: declaring one via
-// `.i18n({ locales: ['fr'], ... })` makes the framework's `supportedLngs`
-// reject the fallback to 'en' for every key we haven't translated, so
-// untranslated strings would render as raw keys instead of readable text.
-// Translating everything under the 'en' key (below) — core chrome,
-// validation messages, csv-export, and the 2FA plugin's UI — is what
-// actually makes the whole app read as French, while staying on the
-// framework's single implicit locale.
-adminPanel.i18n({ locales: ['en'], defaultLocale: 'en', fallbackLocale: 'en' });
-adminPanel.registerTranslations('core', { en: coreFr });
-adminPanel.registerTranslations('csv-export', { en: csvExportFr });
+// discovered. Both 'fr' and 'en' declared (not 'fr' alone) is what makes
+// fallback work correctly: i18next's `supportedLngs` must include the
+// fallback locale or it gets filtered out of the resolution chain, which
+// is exactly the bug the single-locale setup above worked around by
+// translating everything under the 'en' key instead. Now that 'en' is a
+// real second locale, the framework's own built-in English catalogs for
+// 'core'/'csv-export' (and kratosjs-plugin-2fa's own 'en' catalog) serve
+// English users automatically — only our own 'app' namespace needs both
+// languages hand-authored (see src/i18n/appFr.ts / appEn.ts).
+adminPanel.i18n({ locales: ['fr', 'en'], defaultLocale: 'fr', fallbackLocale: 'en' });
+adminPanel.registerTranslations('core', { fr: coreFr });
+adminPanel.registerTranslations('csv-export', { fr: csvExportFr });
 adminPanel.registerTranslations('2fa', {
-	en: {
+	fr: {
 		'error.auth_required': 'Authentification requise',
 		'error.code_required': 'Un code de vérification est requis',
 		'error.run_setup': "Lancez la configuration avant d'activer la 2FA",
@@ -253,7 +283,10 @@ adminPanel.registerTranslations('2fa', {
 			"L'authentification à deux facteurs n'est pas configurée. Une fois activée, un code de ton application d'authentification te sera demandé à chaque connexion.",
 		'setup.start_button': "Configurer l'authentification à deux facteurs",
 	},
+	// kratosjs-plugin-2fa ships its own complete English catalog for this
+	// namespace — no need to hand-author one.
 });
+adminPanel.registerTranslations('app', { fr: appFr, en: appEn });
 
 // Email/password login. With `userEntity` set, `validateCredentials` and `getUserById`
 // are provided by default (look up the user, verify the password). Providers return the
@@ -296,6 +329,8 @@ adminPanel.route('get', '/', (_req, reply) =>
 
 // First-login / SuperAdmin-forced password reset — see src/routes/passwordSetup.ts.
 registerPasswordSetupRoutes(adminPanel);
+// PDF receipt download — see src/routes/clientPaymentReceipt.ts.
+registerClientPaymentReceiptRoute(adminPanel);
 
 adminPanel
 	.start(PORT, async () => {

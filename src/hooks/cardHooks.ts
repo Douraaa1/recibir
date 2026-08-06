@@ -1,4 +1,4 @@
-import type { ResourceHooks, HookContext } from '@maxal_studio/kratosjs';
+import { t, type ResourceHooks, type HookContext } from '@maxal_studio/kratosjs';
 import { Card } from '../entities/Card';
 import { isAdminLike } from '../utils/roles';
 
@@ -8,13 +8,13 @@ async function assertIdentifierAvailable(em: any, identifier: string, excludeId?
 	const where: any = excludeId === undefined ? { identifier } : { identifier, id: { $ne: excludeId } };
 	const existing = await em.findOne(Card, where);
 	if (existing) {
-		throw new Error('Ce numéro de carte est déjà utilisé par une autre carte.');
+		throw new Error(t('app:cards.errors.duplicateIdentifier'));
 	}
 }
 
 function assertAdminLike(ctx: HookContext) {
 	if (!isAdminLike(ctx.user?.role)) {
-		throw new Error('Seuls SuperAdmin et adminGN peuvent gérer les cartes.');
+		throw new Error(t('app:cards.errors.adminLikeOnly'));
 	}
 }
 

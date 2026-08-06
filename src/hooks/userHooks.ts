@@ -1,4 +1,4 @@
-import type { ResourceHooks, HookContext } from '@maxal_studio/kratosjs';
+import { t, type ResourceHooks, type HookContext } from '@maxal_studio/kratosjs';
 
 const capitalize = (str: string | undefined): string => {
 	if (!str || typeof str !== 'string') return str || '';
@@ -14,7 +14,7 @@ const capitalize = (str: string | undefined): string => {
 // themselves to admin.
 function assertAdmin(ctx: HookContext) {
 	if (ctx.user?.role !== 'admin') {
-		throw new Error('Seul SuperAdmin peut gérer les collaborateurs.');
+		throw new Error(t('app:users.errors.adminOnly'));
 	}
 }
 

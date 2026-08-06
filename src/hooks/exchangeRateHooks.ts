@@ -1,4 +1,4 @@
-import type { ResourceHooks, HookContext } from '@maxal_studio/kratosjs';
+import { t, type ResourceHooks, type HookContext } from '@maxal_studio/kratosjs';
 import { ExchangeRate } from '../entities/ExchangeRate';
 import { coerceNumericFields } from '../utils/coerceNumeric';
 
@@ -24,7 +24,7 @@ export const exchangeRateHooks: ResourceHooks = {
 			const ids = ctx.input.ids ?? [];
 			const rows = await em.find(ExchangeRate, { id: { $in: ids } } as any);
 			if (rows.some((r: any) => r.code === 'GNF')) {
-				throw new Error('La devise de base (GNF) ne peut pas être supprimée.');
+				throw new Error(t('app:exchangeRates.errors.cannotDeleteBase'));
 			}
 		},
 	],

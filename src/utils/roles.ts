@@ -7,7 +7,9 @@ export function isAdminLike(role?: string): boolean {
 }
 
 /** Dubai team lead — sees/manages the whole Dubai team's data and is the only
- * non-admin role allowed to pay clients. */
+ * non-admin role allowed to validate/refuse a client payment initiated by
+ * AdminGN (see clientPaymentActions.ts) — they don't initiate payments
+ * themselves. */
 export function isTeamLead(role?: string): boolean {
 	return role === 'chef_equipe';
 }

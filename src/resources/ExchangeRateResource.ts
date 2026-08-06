@@ -7,6 +7,7 @@ import {
 	TableBuilder,
 	TextColumn,
 	ToggleColumn,
+	t,
 	type FormContext,
 } from '@maxal_studio/kratosjs';
 import { ExchangeRate } from '../entities/ExchangeRate';
@@ -14,20 +15,25 @@ import { exchangeRateHooks } from '../hooks/exchangeRateHooks';
 
 // Starting set (per the current business requirement). Adding a 6th currency
 // later is a one-line change here — no schema migration needed.
-const CURRENCY_OPTIONS = {
-	GNF: 'GNF — Franc Guinéen',
-	USD: 'USD — Dollar Américain',
-	EUR: 'EUR — Euro',
-	XOF: 'XOF — Franc CFA (BCEAO)',
-	CAD: 'CAD — Dollar Canadien',
-	AED: 'AED — Dirham des Émirats Arabes Unis',
-};
+function currencyOptions() {
+	return {
+		GNF: t('app:exchangeRates.currency.GNF'),
+		USD: t('app:exchangeRates.currency.USD'),
+		EUR: t('app:exchangeRates.currency.EUR'),
+		XOF: t('app:exchangeRates.currency.XOF'),
+		CAD: t('app:exchangeRates.currency.CAD'),
+		AED: t('app:exchangeRates.currency.AED'),
+	};
+}
 
 export class ExchangeRateResource extends BaseResource {
 	static slug = 'exchange-rates';
 
 	static entity = ExchangeRate;
 
+	// Never shown in the sidebar (`hidden` below) — its TableBlock embed in
+	// ParametresPage sets its own title/subtitle directly, so getLabel()
+	// never actually surfaces. Left as a plain field for that reason.
 	static label = 'Taux de Change';
 	static pluralLabel = 'Taux de Change';
 	static icon = 'ArrowRightLeft';
@@ -43,31 +49,31 @@ export class ExchangeRateResource extends BaseResource {
 	static form() {
 		return FormBuilder.make().schema([
 			SelectInput.make('code')
-				.label('Devise')
-				.options(CURRENCY_OPTIONS)
+				.label(t('app:exchangeRates.fields.code'))
+				.options(currencyOptions())
 				.required()
 				.disabled((c: FormContext) => c?.operation === 'edit'),
-			TextInput.make('label').label('Libellé').required().max(60),
+			TextInput.make('label').label(t('app:exchangeRates.fields.label')).required().max(60),
 			TextInput.make('rateToGNF')
-				.label('Taux (1 unité = X GNF)')
-				.helperText('GNF est la devise pivot : son taux reste fixé à 1.')
+				.label(t('app:exchangeRates.fields.rateToGNF'))
+				.helperText(t('app:exchangeRates.form.rateToGNF.helperText'))
 				.type('number')
 				.required()
 				.minValue(0.0001)
 				.step(0.0001)
 				.disabled((c: FormContext) => c?.get('code') === 'GNF'),
-			Toggle.make('active').label('Actif').default(true),
+			Toggle.make('active').label(t('app:common.active')).default(true),
 		]);
 	}
 
 	static table() {
 		return TableBuilder.make()
 			.columns([
-				TextColumn.make('code').label('Code').sortable().searchable(),
-				TextColumn.make('label').label('Libellé').sortable().searchable(),
-				TextColumn.make('rateToGNF').label('Taux vers GNF').sortable(),
-				ToggleColumn.make('active').label('Actif').sortable(),
-				TextColumn.make('updatedAt').label('Mis à jour').sortable().dateTime(),
+				TextColumn.make('code').label(t('app:exchangeRates.columns.code')).sortable().searchable(),
+				TextColumn.make('label').label(t('app:exchangeRates.fields.label')).sortable().searchable(),
+				TextColumn.make('rateToGNF').label(t('app:exchangeRates.columns.rateToGNF')).sortable(),
+				ToggleColumn.make('active').label(t('app:common.active')).sortable(),
+				TextColumn.make('updatedAt').label(t('app:common.updatedAt')).sortable().dateTime(),
 			])
 			.searchable()
 			.defaultSort('code', 'asc');

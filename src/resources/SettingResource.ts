@@ -1,4 +1,4 @@
-import { BaseResource, FormBuilder, TextInput, Section, TableBuilder, TextColumn } from '@maxal_studio/kratosjs';
+import { BaseResource, FormBuilder, TextInput, Section, TableBuilder, TextColumn, t } from '@maxal_studio/kratosjs';
 import { Setting } from '../entities/Setting';
 import { settingHooks } from '../hooks/settingHooks';
 
@@ -7,6 +7,9 @@ export class SettingResource extends BaseResource {
 
 	static entity = Setting;
 
+	// Never shown in the sidebar (`hidden` below) — its FormBlock embed in
+	// ParametresPage sets its own title/subtitle directly, so getLabel()
+	// never actually surfaces. Left as a plain field for that reason.
 	static label = 'Paramètres';
 	static pluralLabel = 'Paramètres';
 	static icon = 'Settings';
@@ -19,16 +22,16 @@ export class SettingResource extends BaseResource {
 	// FormBlock talks to /settings/1 and /settings/update/1 directly.
 	static hidden = true;
 
-	static recordTitleAttribute = () => 'Configuration';
+	static recordTitleAttribute = () => t('app:settings.recordTitle');
 
 	static form() {
 		return FormBuilder.make().schema([
-			Section.make('Sécurité')
+			Section.make(t('app:settings.section.security'))
 				.collapsed(false)
 				.schema([
 					TextInput.make('sessionTimeoutMinutes')
-						.label('Timeout de session (minutes)')
-						.helperText("Déconnexion automatique après cette durée d'inactivité.")
+						.label(t('app:settings.fields.sessionTimeoutMinutes'))
+						.helperText(t('app:settings.form.sessionTimeoutMinutes.helperText'))
 						.type('number')
 						.required()
 						.minValue(1)
@@ -39,8 +42,8 @@ export class SettingResource extends BaseResource {
 
 	static table() {
 		return TableBuilder.make().columns([
-			TextColumn.make('sessionTimeoutMinutes').label('Timeout (min)'),
-			TextColumn.make('updatedAt').label('Mis à jour').dateTime(),
+			TextColumn.make('sessionTimeoutMinutes').label(t('app:settings.columns.timeout')),
+			TextColumn.make('updatedAt').label(t('app:common.updatedAt')).dateTime(),
 		]);
 	}
 

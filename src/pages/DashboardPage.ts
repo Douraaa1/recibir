@@ -1,4 +1,4 @@
-import { Page, WidgetBlock, TableBlock, type Widget } from '@maxal_studio/kratosjs';
+import { Page, WidgetBlock, TableBlock, t, type Widget } from '@maxal_studio/kratosjs';
 import { ShiftResource } from '../resources/ShiftResource';
 import { ClientPaymentResource } from '../resources/ClientPaymentResource';
 import { WrongfulDebitResource } from '../resources/WrongfulDebitResource';
@@ -6,7 +6,11 @@ import { seesTeamWideData } from '../utils/roles';
 
 export class DashboardPage extends Page {
 	static slug = 'dashboard';
-	static label = 'Tableau de bord';
+	// See ParametresPage's `static get label()` for why this is a getter,
+	// not a plain field.
+	static get label() {
+		return t('app:pages.dashboard.label');
+	}
 	static icon = 'LayoutDashboard';
 	static navigationSort = -100;
 
@@ -47,8 +51,8 @@ export class DashboardPage extends Page {
 			TableBlock.make(ShiftResource.table())
 				.dataUrl('shifts/list')
 				.columns(12)
-				.title('Suivi des Shifts')
-				.subtitle(isTeamView ? 'Tous les groupes et agents' : 'Mes shifts'),
+				.title(t('app:pages.dashboard.shifts.title'))
+				.subtitle(isTeamView ? t('app:pages.dashboard.shifts.subtitleTeam') : t('app:pages.dashboard.shifts.subtitleSelf')),
 			// There's no native click-through from a stat card to a filtered list
 			// in this framework, so instead of a dead-end "Débits à Tort" number,
 			// the detail (groupe, carte, shift, montant, date) sits right below it.
@@ -57,7 +61,7 @@ export class DashboardPage extends Page {
 						TableBlock.make(WrongfulDebitResource.table())
 							.dataUrl('wrongful-debits/list')
 							.columns(12)
-							.title('Débits à Tort — détail'),
+							.title(t('app:pages.dashboard.wrongfulDebits.title')),
 					]
 				: []),
 		];

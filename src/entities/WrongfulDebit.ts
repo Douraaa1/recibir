@@ -3,7 +3,7 @@ import { Shift } from './Shift';
 import { Card } from './Card';
 import { User } from './User';
 
-export type WrongfulDebitStatus = 'reported' | 'refund_requested' | 'refunded';
+export type WrongfulDebitStatus = 'reported' | 'refund_requested' | 'refunded' | 'refused';
 
 export interface IWrongfulDebit {
 	id: number;
@@ -16,13 +16,14 @@ export interface IWrongfulDebit {
 	status: WrongfulDebitStatus;
 	refundRequestedAt?: Date | null;
 	refundedAt?: Date | null;
+	refusedAt?: Date | null;
 	createdAt: Date;
 }
 
 /**
  * A card debited by the ATM without dispensing the requested cash, logged
  * during a shift, tracked through to bank reimbursement:
- * reported -> refund_requested -> refunded (see wrongfulDebitActions.ts).
+ * reported -> refund_requested -> refunded | refused (see wrongfulDebitActions.ts).
  *
  * `agent` is denormalized from `shift.agent` at creation time purely so the
  * ownership-scoping hooks can filter on it directly, matching every other
@@ -41,6 +42,7 @@ export const WrongfulDebit = new EntitySchema<IWrongfulDebit>({
 		status: { type: 'string', default: 'reported' },
 		refundRequestedAt: { type: 'Date', nullable: true },
 		refundedAt: { type: 'Date', nullable: true },
+		refusedAt: { type: 'Date', nullable: true },
 		createdAt: { type: 'Date', onCreate: () => new Date() },
 	} as any,
 });

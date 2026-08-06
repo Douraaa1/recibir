@@ -1,4 +1,4 @@
-import type { ResourceHooks, HookContext } from '@maxal_studio/kratosjs';
+import { t, type ResourceHooks, type HookContext } from '@maxal_studio/kratosjs';
 import { Shift } from '../entities/Shift';
 import { coerceNumericFields } from '../utils/coerceNumeric';
 import { assertWithinExpected } from '../utils/withdrawalCycleLedger';
@@ -10,7 +10,7 @@ export const shiftHooks: ResourceHooks = {
 	// defense in depth.
 	beforeCreate: [
 		async () => {
-			throw new Error('Les shifts sont créés automatiquement avec leur cycle de retrait.');
+			throw new Error(t('app:shifts.errors.autoCreatedOnly'));
 		},
 	],
 	// A plain agent only ever sees their own shifts; admin/superviseur/
@@ -29,7 +29,7 @@ export const shiftHooks: ResourceHooks = {
 			const id = ctx.input.ids?.[0];
 			const existing = await em.findOne(Shift, { id });
 			if (!existing || String(existing.agent?.id ?? existing.agent) !== String(ctx.user?.id)) {
-				throw new Error('Shift introuvable.');
+				throw new Error(t('app:shifts.errors.notFound'));
 			}
 		},
 	],
@@ -47,11 +47,11 @@ export const shiftHooks: ResourceHooks = {
 
 			const em = (ctx.adapter as any).getEm().fork();
 			const existing = await em.findOne(Shift, { id }, { populate: ['cycle'] });
-			if (!existing) throw new Error('Shift introuvable.');
+			if (!existing) throw new Error(t('app:shifts.errors.notFound'));
 
 			if (!isAdminLike(ctx.user?.role)) {
 				if (String(existing.agent?.id ?? existing.agent) !== String(ctx.user?.id)) {
-					throw new Error('Vous ne pouvez modifier que vos propres shifts.');
+					throw new Error(t('app:shifts.errors.notOwnShift'));
 				}
 				const allowed = ['withdrawnAED'];
 				for (const key of Object.keys(data)) {
