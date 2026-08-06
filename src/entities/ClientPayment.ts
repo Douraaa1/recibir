@@ -38,16 +38,24 @@ export interface IClientPayment {
  * `code` is system-generated (`env-0001`, `env-0002`, ...) in
  * clientPaymentHooks — never entered by hand, unlike the 7-digit code this
  * field held in an earlier iteration of this feature.
+ *
+ * `senderFirstname`/`senderLastname`/`recipientPhone` default to '' purely
+ * so this migrates cleanly onto production's existing rows (added by an
+ * earlier version of this feature, before sender/recipient-phone existed —
+ * `ALTER TABLE ... NOT NULL` with no default fails against real data).
+ * `.required()` on the form (ClientPaymentResource) is what actually
+ * enforces these are filled in for every new payment; the empty-string
+ * default only ever shows up on payments that predate this field existing.
  */
 export const ClientPayment = new EntitySchema<IClientPayment>({
 	name: 'ClientPayment',
 	properties: {
 		id: { type: 'number', primary: true, autoincrement: true },
 		agent: { kind: 'm:1', entity: () => User },
-		senderFirstname: { type: 'string' },
-		senderLastname: { type: 'string' },
+		senderFirstname: { type: 'string', default: '' },
+		senderLastname: { type: 'string', default: '' },
 		clientName: { type: 'string' },
-		recipientPhone: { type: 'string' },
+		recipientPhone: { type: 'string', default: '' },
 		code: { type: 'string', unique: true },
 		amountAED: { type: 'float' },
 		note: { type: 'text', nullable: true },
