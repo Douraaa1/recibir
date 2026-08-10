@@ -30,6 +30,28 @@ function statusLabels(): Record<string, string> {
 	};
 }
 
+const STATUS_COLOR_BY_VALUE: Record<string, string> = {
+	reported: 'gray',
+	refund_requested: 'warning',
+	refunded: 'success',
+	refused: 'danger',
+};
+
+// The `status` BadgeColumn's own formatStateUsing overwrites `row.status` in
+// the served payload with the translated label (not the raw enum) — the
+// client-side badge-color lookup matches against that same overwritten
+// value, so the color map has to be keyed by the translated label too, not
+// the raw 'reported'/'refunded'/etc. Both this and statusLabels() resolve
+// t() at the same request, so the keys always agree.
+function statusColors(): Record<string, string> {
+	const labels = statusLabels();
+	const result: Record<string, string> = {};
+	for (const [value, color] of Object.entries(STATUS_COLOR_BY_VALUE)) {
+		result[labels[value]] = color;
+	}
+	return result;
+}
+
 function personName(value: any): string {
 	if (!value) return '—';
 	return `${value.firstname ?? ''} ${value.lastname ?? ''}`.trim() || value.email || '—';
@@ -106,7 +128,7 @@ export class WrongfulDebitResource extends BaseResource {
 				BadgeColumn.make('status')
 					.label(t('app:wrongfulDebits.columns.status'))
 					.formatStateUsing((v: string) => statusLabels()[v] ?? v)
-					.colors({ reported: 'gray', refund_requested: 'warning', refunded: 'success', refused: 'danger' })
+					.colors(statusColors())
 					.sortable(),
 				TextColumn.make('date').label(t('app:common.date')).sortable().date(),
 				TextColumn.make('note').label(t('app:common.note')).limit(60),

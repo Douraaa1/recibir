@@ -188,8 +188,7 @@ export const appFr: Record<string, string> = {
 	// --- clientPayments (Paiements Clients) ---
 	'clientPayments.label': 'Paiement Client',
 	'clientPayments.pluralLabel': 'Paiements Clients',
-	'clientPayments.fields.senderFirstname': "Prénom de l'expéditeur",
-	'clientPayments.fields.senderLastname': "Nom de l'expéditeur",
+	'clientPayments.fields.senderName': "Nom de l'expéditeur",
 	'clientPayments.fields.clientName': 'Nom du destinataire',
 	'clientPayments.fields.recipientPhone': 'Téléphone du destinataire',
 	'clientPayments.columns.code': 'Code',
@@ -231,5 +230,6 @@ export const appFr: Record<string, string> = {
 	'clientPayments.receipt.recipientPhone': 'Téléphone du destinataire',
 	'clientPayments.receipt.status': 'Statut',
 	'clientPayments.receipt.date': 'Date',
+	'clientPayments.receipt.qrCaption': 'Scannez pour vérifier',
 	'clientPayments.receipt.footer': 'Document généré automatiquement — RECIBIR',
 };

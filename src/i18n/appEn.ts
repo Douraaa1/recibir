@@ -174,8 +174,7 @@ export const appEn: Record<string, string> = {
 	// --- clientPayments (Client Payments) ---
 	'clientPayments.label': 'Client Payment',
 	'clientPayments.pluralLabel': 'Client Payments',
-	'clientPayments.fields.senderFirstname': "Sender's first name",
-	'clientPayments.fields.senderLastname': "Sender's last name",
+	'clientPayments.fields.senderName': "Sender's name",
 	'clientPayments.fields.clientName': "Recipient's name",
 	'clientPayments.fields.recipientPhone': "Recipient's phone",
 	'clientPayments.columns.code': 'Code',
@@ -215,5 +214,6 @@ export const appEn: Record<string, string> = {
 	'clientPayments.receipt.recipientPhone': "Recipient's phone",
 	'clientPayments.receipt.status': 'Status',
 	'clientPayments.receipt.date': 'Date',
+	'clientPayments.receipt.qrCaption': 'Scan to verify',
 	'clientPayments.receipt.footer': 'Automatically generated document — RECIBIR',
 };

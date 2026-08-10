@@ -28,6 +28,28 @@ function statusLabels(): Record<string, string> {
 	};
 }
 
+const STATUS_COLOR_BY_VALUE: Record<string, string> = {
+	pending: 'warning',
+	validated: 'success',
+	refused: 'danger',
+	cancelled: 'secondary',
+};
+
+// The `status` BadgeColumn's own formatStateUsing overwrites `row.status` in
+// the served payload with the translated label (not the raw enum) — the
+// client-side badge-color lookup matches against that same overwritten
+// value, so the color map has to be keyed by the translated label too, not
+// the raw 'pending'/'validated'/etc. Both this and statusLabels() resolve
+// t() at the same request, so the keys always agree.
+function statusColors(): Record<string, string> {
+	const labels = statusLabels();
+	const result: Record<string, string> = {};
+	for (const [value, color] of Object.entries(STATUS_COLOR_BY_VALUE)) {
+		result[labels[value]] = color;
+	}
+	return result;
+}
+
 function personName(value: any): string {
 	if (!value) return '—';
 	return `${value.firstname ?? ''} ${value.lastname ?? ''}`.trim() || value.email || '—';
@@ -53,7 +75,7 @@ export class ClientPaymentResource extends BaseResource {
 	static canDelete = false;
 
 	static recordTitleAttribute = 'code';
-	static globallySearchableAttributes = ['clientName', 'code', 'senderFirstname', 'senderLastname'];
+	static globallySearchableAttributes = ['clientName', 'code', 'senderName'];
 
 	static form() {
 		// Only ever editable while pending (enforced server-side in
@@ -63,10 +85,9 @@ export class ClientPaymentResource extends BaseResource {
 		const lockedOnEdit = (c: FormContext) => c?.operation === 'edit' && !isAdmin;
 
 		return FormBuilder.make().schema([
-			TextInput.make('senderFirstname').label(t('app:clientPayments.fields.senderFirstname')).required().min(2).max(60).disabled(lockedOnEdit),
-			TextInput.make('senderLastname').label(t('app:clientPayments.fields.senderLastname')).required().min(2).max(60).disabled(lockedOnEdit),
+			TextInput.make('senderName').label(t('app:clientPayments.fields.senderName')).required().min(2).max(120).disabled(lockedOnEdit),
 			TextInput.make('clientName').label(t('app:clientPayments.fields.clientName')).required().min(2).max(120).disabled(lockedOnEdit),
-			TextInput.make('recipientPhone').label(t('app:clientPayments.fields.recipientPhone')).required().disabled(lockedOnEdit),
+			TextInput.make('recipientPhone').label(t('app:clientPayments.fields.recipientPhone')).disabled(lockedOnEdit),
 			TextInput.make('amountAED').label(t('app:common.amountAED')).type('number').required().minValue(1).disabled(lockedOnEdit),
 			Textarea.make('note').label(t('app:common.note')).rows(3).disabled(lockedOnEdit),
 			// System-generated in clientPaymentHooks (env-0001, ...) — never
@@ -83,23 +104,22 @@ export class ClientPaymentResource extends BaseResource {
 				TextColumn.make('code').label(t('app:clientPayments.columns.code')).sortable().searchable(),
 				TextColumn.make('senderName')
 					.label(t('app:clientPayments.columns.sender'))
-					.formatStateUsing((_: any, row: any) => `${row.senderFirstname ?? ''} ${row.senderLastname ?? ''}`.trim() || '—'),
+					.formatStateUsing((v: string) => v || '—')
+					.sortable()
+					.searchable(),
 				TextColumn.make('clientName').label(t('app:clientPayments.fields.clientName')).sortable().searchable(),
-				TextColumn.make('recipientPhone').label(t('app:clientPayments.columns.recipientPhone')),
+				TextColumn.make('recipientPhone')
+					.label(t('app:clientPayments.columns.recipientPhone'))
+					.formatStateUsing((v: string) => v || '—'),
 				TextColumn.make('amountAED').label(t('app:common.amountAED')).money('AED').sortable(),
 				BadgeColumn.make('status')
 					.label(t('app:clientPayments.columns.status'))
 					.formatStateUsing((v: string) => statusLabels()[v] ?? v)
-					.colors({ pending: 'warning', validated: 'success', refused: 'danger', cancelled: 'secondary' })
+					.colors(statusColors())
 					.sortable(),
 				TextColumn.make('agent').label(t('app:common.agent')).formatStateUsing((v: any) => personName(v)),
 				TextColumn.make('createdAt').label(t('app:common.createdAt')).sortable().dateTime(),
 			])
-			// senderFirstname/senderLastname aren't columns of their own — only
-			// the computed senderName column reads them — so they'd otherwise
-			// be dropped from the server's row projection before
-			// formatStateUsing ever sees them.
-			.extraFields(['senderFirstname', 'senderLastname'])
 			.populate([{ path: 'agent' }])
 			.actions(clientPaymentRowActions())
 			.exportable()

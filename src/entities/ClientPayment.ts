@@ -6,10 +6,9 @@ export type ClientPaymentStatus = 'pending' | 'validated' | 'refused' | 'cancell
 export interface IClientPayment {
 	id: number;
 	agent: any;
-	senderFirstname: string;
-	senderLastname: string;
+	senderName: string;
 	clientName: string;
-	recipientPhone: string;
+	recipientPhone?: string;
 	code: string;
 	amountAED: number;
 	note?: string;
@@ -27,8 +26,9 @@ export interface IClientPayment {
  * treasury widgets).
  *
  * Two-person control: AdminGN (superviseur) initiates a payment (`pending`),
- * entering the sender's identity (`senderFirstname`/`senderLastname` — an
- * external person, not a system User) and the recipient's name/phone.
+ * entering the sender's identity (`senderName` — an external person, not a
+ * system User) and the recipient's name (required) and phone (optional —
+ * not every recipient's number is on hand when the payment is initiated).
  * AdminEAU (chef_equipe) then validates or refuses it (see
  * clientPaymentActions.ts) — only a `validated` payment counts against the
  * treasury. SuperAdmin can cancel a validated payment (excluding it from the
@@ -39,23 +39,22 @@ export interface IClientPayment {
  * clientPaymentHooks — never entered by hand, unlike the 7-digit code this
  * field held in an earlier iteration of this feature.
  *
- * `senderFirstname`/`senderLastname`/`recipientPhone` default to '' purely
- * so this migrates cleanly onto production's existing rows (added by an
- * earlier version of this feature, before sender/recipient-phone existed —
- * `ALTER TABLE ... NOT NULL` with no default fails against real data).
- * `.required()` on the form (ClientPaymentResource) is what actually
- * enforces these are filled in for every new payment; the empty-string
- * default only ever shows up on payments that predate this field existing.
+ * `senderName` defaults to '' purely so this migrates cleanly onto
+ * production's existing rows (added by an earlier version of this feature,
+ * before the field existed — `ALTER TABLE ... NOT NULL` with no default
+ * fails against real data). `.required()` on the form
+ * (ClientPaymentResource) is what actually enforces it's filled in for
+ * every new payment; the empty-string default only ever shows up on
+ * payments that predate this field existing.
  */
 export const ClientPayment = new EntitySchema<IClientPayment>({
 	name: 'ClientPayment',
 	properties: {
 		id: { type: 'number', primary: true, autoincrement: true },
 		agent: { kind: 'm:1', entity: () => User },
-		senderFirstname: { type: 'string', default: '' },
-		senderLastname: { type: 'string', default: '' },
+		senderName: { type: 'string', default: '' },
 		clientName: { type: 'string' },
-		recipientPhone: { type: 'string', default: '' },
+		recipientPhone: { type: 'string', nullable: true },
 		code: { type: 'string', unique: true },
 		amountAED: { type: 'float' },
 		note: { type: 'text', nullable: true },

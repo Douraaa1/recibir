@@ -35,15 +35,16 @@ const ROLE_LABELS = {
 };
 
 // What this agent has actually netted across their own shifts (withdrawn
-// minus their own outstanding — not yet refunded — wrongful debits) — not
-// the shared treasury balance (that also nets out client payments; see
-// ShiftResource's 'shifts.treasuryTotal').
+// plus their own bank-refunded wrongful debits — a reported-but-unresolved
+// debit isn't a confirmed loss or gain, so it doesn't move this figure
+// either way) — not the shared treasury balance (that also nets out client
+// payments; see ShiftResource's 'shifts.treasuryTotal').
 async function netGeneratedByAgent(em: any, agentId: number): Promise<number> {
 	const shifts = await em.find(Shift, { agent: agentId } as any);
 	const withdrawn = shifts.reduce((sum: number, s: any) => sum + s.withdrawnAED, 0);
-	const debits = await em.find(WrongfulDebit, { agent: agentId, status: { $ne: 'refunded' } } as any);
-	const wrongfulTotal = debits.reduce((sum: number, d: any) => sum + d.amountAED, 0);
-	return withdrawn - wrongfulTotal;
+	const debits = await em.find(WrongfulDebit, { agent: agentId, status: 'refunded' } as any);
+	const wrongfulRefunded = debits.reduce((sum: number, d: any) => sum + d.amountAED, 0);
+	return withdrawn + wrongfulRefunded;
 }
 
 export class UserResource extends BaseResource {

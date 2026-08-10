@@ -26,10 +26,20 @@ function personName(value: any): string {
 	return `${value.firstname ?? ''} ${value.lastname ?? ''}`.trim() || value.email || '—';
 }
 
-// Outstanding (not yet refunded) only — once the bank refunds a wrongful
-// debit, it stops counting against this shift's treasury contribution.
+// Outstanding (not yet refunded) — shown for visibility on the shift row,
+// but no longer subtracted from treasury (see wrongfulDebitRefundedForShift):
+// a reported-but-unresolved debit isn't a confirmed loss, it's a problem
+// being chased (tracked by the "Débits à Tort" widget instead).
 async function wrongfulDebitOutstandingForShift(em: any, shiftId: number): Promise<number> {
 	const rows = await em.find(WrongfulDebit, { shift: shiftId, status: { $ne: 'refunded' } } as any);
+	return rows.reduce((sum: number, d: any) => sum + d.amountAED, 0);
+}
+
+// Once the bank actually refunds a wrongful debit, that's confirmed money
+// back — it adds to the shift's treasury contribution on top of what was
+// withdrawn, rather than merely stopping a subtraction.
+async function wrongfulDebitRefundedForShift(em: any, shiftId: number): Promise<number> {
+	const rows = await em.find(WrongfulDebit, { shift: shiftId, status: 'refunded' } as any);
 	return rows.reduce((sum: number, d: any) => sum + d.amountAED, 0);
 }
 
@@ -104,9 +114,9 @@ export class ShiftResource extends BaseResource {
 					.label(t('app:shifts.columns.treasury'))
 					.formatStateUsing(async (_: any, row: any) => {
 						const em = ShiftResource.getPanel().getEm().fork();
-						const debit = await wrongfulDebitOutstandingForShift(em, row.id);
+						const refunded = await wrongfulDebitRefundedForShift(em, row.id);
 						return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'AED' }).format(
-							(row.withdrawnAED ?? 0) - debit,
+							(row.withdrawnAED ?? 0) + refunded,
 						);
 					}),
 			])
@@ -123,11 +133,14 @@ export class ShiftResource extends BaseResource {
 
 	static widgets(): Widget[] {
 		return [
-			// Net available treasury: withdrawn across all shifts, minus wrongful
-			// debits, minus what's already been paid out to clients. A plain agent
-			// only sees their own share; every other role sees the whole team's
-			// (admin/superviseur company-wide, chef_equipe Dubai-team-wide — same
-			// number here since this data is all Dubai-side anyway).
+			// Net available treasury: withdrawn across all shifts, plus wrongful
+			// debits the bank has actually refunded (a reported-but-unresolved
+			// debit isn't a confirmed loss, so it doesn't touch this figure — see
+			// the "Débits à Tort" widget for that), minus what's already been
+			// paid out to clients. A plain agent only sees their own share; every
+			// other role sees the whole team's (admin/superviseur company-wide,
+			// chef_equipe Dubai-team-wide — same number here since this data is
+			// all Dubai-side anyway).
 			StatsWidget.make('shifts.treasuryTotal')
 				.label(t('app:shifts.widgets.treasuryTotal'))
 				.icon('Wallet')
@@ -143,10 +156,10 @@ export class ShiftResource extends BaseResource {
 					const withdrawn = shifts.reduce((sum: number, s: any) => sum + s.withdrawnAED, 0);
 
 					const debitFilter = scopeToSelf
-						? ({ agent: agentId, status: { $ne: 'refunded' } } as any)
-						: ({ status: { $ne: 'refunded' } } as any);
+						? ({ agent: agentId, status: 'refunded' } as any)
+						: ({ status: 'refunded' } as any);
 					const debits = await em.find(WrongfulDebit, debitFilter);
-					const wrongfulTotal = debits.reduce((sum: number, d: any) => sum + d.amountAED, 0);
+					const wrongfulRefunded = debits.reduce((sum: number, d: any) => sum + d.amountAED, 0);
 
 					// Only validated payments have actually left the treasury — a
 					// pending request or a refused/cancelled one never did (see
@@ -157,7 +170,7 @@ export class ShiftResource extends BaseResource {
 					const payments = await em.find(ClientPayment, paymentFilter);
 					const paidOut = payments.reduce((sum: number, p: any) => sum + p.amountAED, 0);
 
-					return withdrawn - wrongfulTotal - paidOut;
+					return withdrawn + wrongfulRefunded - paidOut;
 				}),
 
 			// Same net-treasury formula as shifts.treasuryTotal, split by agent.
@@ -175,11 +188,11 @@ export class ShiftResource extends BaseResource {
 					for (const agent of agents) {
 						const shifts = await em.find(Shift, { agent: agent.id } as any);
 						const withdrawn = shifts.reduce((sum: number, s: any) => sum + s.withdrawnAED, 0);
-						const debits = await em.find(WrongfulDebit, { agent: agent.id, status: { $ne: 'refunded' } } as any);
-						const wrongfulTotal = debits.reduce((sum: number, d: any) => sum + d.amountAED, 0);
+						const debits = await em.find(WrongfulDebit, { agent: agent.id, status: 'refunded' } as any);
+						const wrongfulRefunded = debits.reduce((sum: number, d: any) => sum + d.amountAED, 0);
 						const payments = await em.find(ClientPayment, { agent: agent.id, status: 'validated' } as any);
 						const paidOut = payments.reduce((sum: number, p: any) => sum + p.amountAED, 0);
-						results.push({ label: personName(agent), value: withdrawn - wrongfulTotal - paidOut });
+						results.push({ label: personName(agent), value: withdrawn + wrongfulRefunded - paidOut });
 					}
 					return results;
 				}),
