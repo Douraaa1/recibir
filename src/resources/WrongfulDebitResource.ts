@@ -17,6 +17,7 @@ import {
 import { WrongfulDebit } from '../entities/WrongfulDebit';
 import { wrongfulDebitHooks } from '../hooks/wrongfulDebitHooks';
 import { wrongfulDebitRowActions, wrongfulDebitActionHandlers } from '../actions/wrongfulDebitActions';
+import { formatCurrency } from '../utils/formatMoney';
 
 // Locale-dependent, so this must stay a function called fresh per request —
 // a module-level const would be frozen at import time (see appFr.ts/appEn.ts
@@ -124,7 +125,10 @@ export class WrongfulDebitResource extends BaseResource {
 					.formatStateUsing((_: any, row: any) => (row.shift ? t('app:shifts.shiftBadge', { n: row.shift.shiftNumber }) : '—')),
 				TextColumn.make('card').label(t('app:wrongfulDebits.columns.card')).formatStateUsing((v: any) => v?.identifier ?? '—'),
 				TextColumn.make('agent').label(t('app:common.agent')).formatStateUsing((v: any) => personName(v)),
-				TextColumn.make('amountAED').label(t('app:wrongfulDebits.columns.amount')).money('AED').sortable(),
+				TextColumn.make('amountAED')
+					.label(t('app:wrongfulDebits.columns.amount'))
+					.formatStateUsing((v: number) => formatCurrency(v, 'AED'))
+					.sortable(),
 				BadgeColumn.make('status')
 					.label(t('app:wrongfulDebits.columns.status'))
 					.formatStateUsing((v: string) => statusLabels()[v] ?? v)

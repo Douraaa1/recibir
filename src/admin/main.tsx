@@ -1,6 +1,8 @@
 import { mountAdminPanel } from '@maxal_studio/kratosjs-react';
 import { pluginClients } from 'virtual:kratos-client';
 import twoFactorClient from '@maxal_studio/kratosjs-plugin-2fa/client';
+import { CustomStatsWidget } from './CustomStatsWidget';
+import { AmountConverter } from './AmountConverter';
 import '@maxal_studio/kratosjs-react/styles.css';
 import './brand.css';
 
@@ -16,4 +18,15 @@ import './brand.css';
 // the page, so no i18n config is needed here.
 mountAdminPanel({
 	plugins: [...pluginClients, twoFactorClient],
+	// Overrides the built-in 'stats' widget renderer (registry keys are
+	// merged, custom wins) so dashboard stat cards use our dot-thousands
+	// formatter instead of Intl.NumberFormat(undefined, ...) — see
+	// CustomStatsWidget.tsx for why that can't be fixed any other way.
+	widgets: { stats: CustomStatsWidget },
+	// Renders above every resource's create/edit form (AmountConverter itself
+	// no-ops outside 'client-payments') — lets an agent convert a USD/GNF
+	// amount to AED right there instead of leaving the app to do the math.
+	slots: {
+		'form.header': { id: 'amount-converter', render: ctx => <AmountConverter resourceSlug={ctx.resourceSlug} /> },
+	},
 });

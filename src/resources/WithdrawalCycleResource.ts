@@ -2,6 +2,7 @@ import { BaseResource, FormBuilder, TextInput, SelectInput, HiddenInput, TableBu
 import { WithdrawalCycle } from '../entities/WithdrawalCycle';
 import { withdrawalCycleHooks } from '../hooks/withdrawalCycleHooks';
 import { isAdminLike } from '../utils/roles';
+import { formatCurrency } from '../utils/formatMoney';
 
 export class WithdrawalCycleResource extends BaseResource {
 	static slug = 'withdrawal-cycles';
@@ -50,8 +51,14 @@ export class WithdrawalCycleResource extends BaseResource {
 		return TableBuilder.make()
 			.columns([
 				TextColumn.make('group').label(t('app:common.group')).formatStateUsing((v: any) => v?.name ?? '—'),
-				TextColumn.make('sentGNF').label(t('app:withdrawalCycles.columns.sentGNF')).money('GNF').sortable(),
-				TextColumn.make('expectedAED').label(t('app:withdrawalCycles.columns.expectedAED')).money('AED').sortable(),
+				TextColumn.make('sentGNF')
+					.label(t('app:withdrawalCycles.columns.sentGNF'))
+					.formatStateUsing((v: number) => formatCurrency(v, 'GNF', 0))
+					.sortable(),
+				TextColumn.make('expectedAED')
+					.label(t('app:withdrawalCycles.columns.expectedAED'))
+					.formatStateUsing((v: number) => formatCurrency(v, 'AED', 0))
+					.sortable(),
 				TextColumn.make('date').label(t('app:common.date')).sortable().date(),
 				TextColumn.make('createdAt').label(t('app:common.createdAt')).sortable().dateTime(),
 			])

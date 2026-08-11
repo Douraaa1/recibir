@@ -20,6 +20,7 @@ import { ClientPayment } from '../entities/ClientPayment';
 import { User } from '../entities/User';
 import { shiftHooks } from '../hooks/shiftHooks';
 import { isAdminLike } from '../utils/roles';
+import { formatCurrency } from '../utils/formatMoney';
 
 function personName(value: any): string {
 	if (!value) return '—';
@@ -102,22 +103,30 @@ export class ShiftResource extends BaseResource {
 					.formatStateUsing((v: number) => t('app:shifts.shiftBadge', { n: v }))
 					.sortable(),
 				TextColumn.make('date').label(t('app:common.date')).sortable().date(),
-				TextColumn.make('withdrawnAED').label(t('app:shifts.columns.withdrawn')).money('AED').sortable(),
+				TextColumn.make('withdrawnAED')
+					.label(t('app:shifts.columns.withdrawn'))
+					.formatStateUsing((v: number) => formatCurrency(v, 'AED'))
+					.sortable(),
 				TextColumn.make('wrongfulDebitTotal')
 					.label(t('app:shifts.columns.wrongfulDebit'))
 					.formatStateUsing(async (_: any, row: any) => {
 						const em = ShiftResource.getPanel().getEm().fork();
 						const total = await wrongfulDebitOutstandingForShift(em, row.id);
-						return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'AED' }).format(total);
+						return formatCurrency(total, 'AED');
 					}),
 				TextColumn.make('treasury')
 					.label(t('app:shifts.columns.treasury'))
 					.formatStateUsing(async (_: any, row: any) => {
+						// Read withdrawnAED fresh from the DB rather than off `row` — the
+						// 'withdrawnAED' column's own formatStateUsing above overwrites
+						// row.withdrawnAED in the served payload with its formatted
+						// string once it runs, so reading it back here would concatenate
+						// strings instead of adding numbers (see the KratosJS gotcha:
+						// formatStateUsing mutates the row's raw field value).
 						const em = ShiftResource.getPanel().getEm().fork();
+						const shift = await em.findOne(Shift, { id: row.id } as any);
 						const refunded = await wrongfulDebitRefundedForShift(em, row.id);
-						return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'AED' }).format(
-							(row.withdrawnAED ?? 0) + refunded,
-						);
+						return formatCurrency((shift?.withdrawnAED ?? 0) + refunded, 'AED');
 					}),
 			])
 			.populate([{ path: 'cycle', populate: { path: 'group' } }, { path: 'agent' }])

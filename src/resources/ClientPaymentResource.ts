@@ -16,6 +16,7 @@ import { ClientPayment } from '../entities/ClientPayment';
 import { clientPaymentHooks } from '../hooks/clientPaymentHooks';
 import { clientPaymentRowActions, clientPaymentActionHandlers } from '../actions/clientPaymentActions';
 import { isAdminLike } from '../utils/roles';
+import { formatCurrency } from '../utils/formatMoney';
 
 // Locale-dependent, so this must stay a function called fresh per request —
 // a module-level const would be frozen at import time.
@@ -111,7 +112,10 @@ export class ClientPaymentResource extends BaseResource {
 				TextColumn.make('recipientPhone')
 					.label(t('app:clientPayments.columns.recipientPhone'))
 					.formatStateUsing((v: string) => v || '—'),
-				TextColumn.make('amountAED').label(t('app:common.amountAED')).money('AED').sortable(),
+				TextColumn.make('amountAED')
+					.label(t('app:common.amountAED'))
+					.formatStateUsing((v: number) => formatCurrency(v, 'AED'))
+					.sortable(),
 				BadgeColumn.make('status')
 					.label(t('app:clientPayments.columns.status'))
 					.formatStateUsing((v: string) => statusLabels()[v] ?? v)

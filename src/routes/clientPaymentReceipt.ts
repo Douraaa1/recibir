@@ -3,6 +3,7 @@ import PDFDocument from 'pdfkit';
 import { adminRoute, getRequestContext, t, type Panel } from '@maxal_studio/kratosjs';
 import { ClientPayment } from '../entities/ClientPayment';
 import { isAdminLike, isTeamLead } from '../utils/roles';
+import { formatCurrency } from '../utils/formatMoney';
 
 // `assets/` lives at the project root, outside `src/` — it isn't part of the
 // TypeScript build, so resolving it relative to __dirname (not process.cwd())
@@ -75,10 +76,9 @@ function buildReceiptPdf(payment: any): Promise<Buffer> {
 		row(t('app:clientPayments.receipt.sender'), payment.senderName || '—');
 		row(t('app:clientPayments.receipt.recipient'), payment.clientName);
 		row(t('app:clientPayments.receipt.recipientPhone'), payment.recipientPhone || '—');
-		row(t('app:common.amountAED'), new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'AED' }).format(payment.amountAED));
+		row(t('app:common.amountAED'), formatCurrency(payment.amountAED, 'AED'));
 		row(t('app:clientPayments.receipt.status'), statusLabel(payment.status));
 		row(t('app:clientPayments.receipt.date'), new Date(payment.createdAt).toLocaleDateString('fr-FR'));
-		if (payment.note) row(t('app:common.note'), payment.note);
 
 		// QR + footer anchored below whatever content ended up above (a long
 		// note can push this down) rather than pinned to a fixed page

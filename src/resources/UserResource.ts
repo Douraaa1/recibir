@@ -20,6 +20,7 @@ import { WrongfulDebit } from '../entities/WrongfulDebit';
 import { userHooks } from '../hooks/userHooks';
 import { userRowActions, userActionHandlers } from '../actions/userActions';
 import { getPublicUrl } from '../utils/publicUrl';
+import { formatCurrency } from '../utils/formatMoney';
 
 // Display labels only — the underlying role values stored in the DB and
 // used throughout the permission logic (see src/utils/roles.ts) stay
@@ -113,7 +114,7 @@ export class UserResource extends BaseResource {
 						if (row.role !== 'agent') return '—';
 						const em = UserResource.getPanel().getEm().fork();
 						const total = await netGeneratedByAgent(em, row.id);
-						return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'AED' }).format(total);
+						return formatCurrency(total, 'AED');
 					}),
 				TextColumn.make('passwordStatus')
 					.label(t('app:users.columns.passwordStatus'))
