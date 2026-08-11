@@ -17,6 +17,7 @@ import {
 import { Shift } from '../entities/Shift';
 import { WrongfulDebit } from '../entities/WrongfulDebit';
 import { ClientPayment } from '../entities/ClientPayment';
+import { TreasuryDeposit } from '../entities/TreasuryDeposit';
 import { User } from '../entities/User';
 import { shiftHooks } from '../hooks/shiftHooks';
 import { isAdminLike } from '../utils/roles';
@@ -179,7 +180,14 @@ export class ShiftResource extends BaseResource {
 					const payments = await em.find(ClientPayment, paymentFilter);
 					const paidOut = payments.reduce((sum: number, p: any) => sum + p.amountAED, 0);
 
-					return withdrawn + wrongfulRefunded - paidOut;
+					// Manual injections (e.g. a bank transfer for a very large sum —
+					// see TreasuryDepositResource) aren't tied to any agent, so a
+					// plain agent's own scoped total never includes them — only the
+					// team-wide figure does.
+					const deposits = scopeToSelf ? [] : await em.find(TreasuryDeposit, {} as any);
+					const depositsTotal = deposits.reduce((sum: number, d: any) => sum + d.amountAED, 0);
+
+					return withdrawn + wrongfulRefunded + depositsTotal - paidOut;
 				}),
 
 			// Same net-treasury formula as shifts.treasuryTotal, split by agent.
@@ -203,6 +211,16 @@ export class ShiftResource extends BaseResource {
 						const paidOut = payments.reduce((sum: number, p: any) => sum + p.amountAED, 0);
 						results.push({ label: personName(agent), value: withdrawn + wrongfulRefunded - paidOut });
 					}
+
+					// Manual injections aren't attributed to any agent — shown as
+					// their own slice so this pie's total still reconciles with
+					// shifts.treasuryTotal above.
+					const deposits = await em.find(TreasuryDeposit, {} as any);
+					const depositsTotal = deposits.reduce((sum: number, d: any) => sum + d.amountAED, 0);
+					if (depositsTotal > 0) {
+						results.push({ label: t('app:treasuryDeposits.pluralLabel'), value: depositsTotal });
+					}
+
 					return results;
 				}),
 

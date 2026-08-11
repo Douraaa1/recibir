@@ -157,6 +157,18 @@ export const appEn: Record<string, string> = {
 	'wrongfulDebits.errors.cardWrongGroup': "This card doesn't belong to this shift's group.",
 	'wrongfulDebits.errors.updateAdminLikeOnly': 'An already-recorded wrongful debit can only be edited by SuperAdmin or adminGN.',
 
+	// --- treasuryDeposits (Treasury Deposits) ---
+	'treasuryDeposits.label': 'Treasury Deposit',
+	'treasuryDeposits.pluralLabel': 'Treasury Deposits',
+	'treasuryDeposits.fields.channel': 'Channel',
+	'treasuryDeposits.fields.reference': 'Reference',
+	'treasuryDeposits.fields.date': 'Date',
+	'treasuryDeposits.fields.createdBy': 'Added by',
+	'treasuryDeposits.channel.bankTransfer': 'Bank transfer',
+	'treasuryDeposits.channel.other': 'Other',
+	'treasuryDeposits.errors.createSuperAdminOnly': 'Only SuperAdmin can record a treasury deposit.',
+	'treasuryDeposits.errors.updateSuperAdminOnly': 'Only SuperAdmin can edit a treasury deposit.',
+
 	// --- pages ---
 	'pages.parametres.label': 'Settings',
 	'pages.parametres.security.title': 'Security',

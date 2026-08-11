@@ -19,3 +19,11 @@ export function isTeamLead(role?: string): boolean {
 export function seesTeamWideData(role?: string): boolean {
 	return isAdminLike(role) || isTeamLead(role);
 }
+
+/** Only the literal SuperAdmin — narrower than isAdminLike, which also
+ * includes superviseur (AdminGN). Reserved for the handful of actions the
+ * business wants kept to a single person (e.g. recording a manual treasury
+ * deposit like a bank transfer). */
+export function isSuperAdmin(role?: string): boolean {
+	return role === 'admin';
+}

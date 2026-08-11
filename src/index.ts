@@ -14,6 +14,7 @@ import { WithdrawalCycleResource } from './resources/WithdrawalCycleResource';
 import { ShiftResource } from './resources/ShiftResource';
 import { WrongfulDebitResource } from './resources/WrongfulDebitResource';
 import { ClientPaymentResource } from './resources/ClientPaymentResource';
+import { TreasuryDepositResource } from './resources/TreasuryDepositResource';
 import { SettingResource } from './resources/SettingResource';
 import { ExchangeRateResource } from './resources/ExchangeRateResource';
 import { DashboardPage } from './pages/DashboardPage';
@@ -24,7 +25,7 @@ import { seedSettings } from './seedSettings';
 import { seedExchangeRates } from './seedExchangeRates';
 import { sessionTimeoutMiddleware } from './middleware/sessionTimeout';
 import { frenchCsvExporter } from './utils/frenchCsvExporter';
-import { isAdminLike, isTeamLead } from './utils/roles';
+import { isAdminLike, isTeamLead, isSuperAdmin } from './utils/roles';
 import { getPublicUrl } from './utils/publicUrl';
 import { registerPasswordSetupRoutes } from './routes/passwordSetup';
 import { registerClientPaymentReceiptRoute } from './routes/clientPaymentReceipt';
@@ -56,7 +57,12 @@ import { appEn } from './i18n/appEn';
 // Settings/Taux de Change blocks internally instead of hiding the whole page).
 const ADMIN_LIKE_ONLY_RESOURCE_SLUGS = ['card-groups', 'cards'];
 const ADMIN_ONLY_RESOURCE_SLUGS = ['users'];
-const AGENT_HIDDEN_RESOURCE_SLUGS = ['client-payments'];
+// "treasury-deposits" is hidden from a plain agent (a manual treasury
+// top-up is a back-office concern, not something a field agent touches),
+// but still visible read-only to superviseur/chef_equipe alongside the rest
+// of the team-wide treasury data — only *creating*/editing one is
+// SuperAdmin-only (see the capabilities filter hook below).
+const AGENT_HIDDEN_RESOURCE_SLUGS = ['client-payments', 'treasury-deposits'];
 const ADMIN_ONLY_PAGE_SLUGS: string[] = [];
 // Dealing with the bank (requesting/confirming a refund) is an admin/
 // superviseur task — chef_equipe and agents can report a wrongful debit,
@@ -127,6 +133,7 @@ const adminPanel = Panel.make('admin')
 		ShiftResource,
 		WrongfulDebitResource,
 		ClientPaymentResource,
+		TreasuryDepositResource,
 		SettingResource,
 		ExchangeRateResource,
 	])
@@ -200,6 +207,12 @@ adminPanel.registerCapabilitiesFilterHook((capabilities, resourceSlug, user) => 
 	}
 	if (resourceSlug === 'client-payments' && !isAdminLike(user?.role)) {
 		return { ...capabilities, canCreate: false };
+	}
+	// Recording a manual treasury deposit (e.g. a bank transfer) is kept to
+	// the single literal SuperAdmin — narrower than every other admin-like
+	// gate in this file, which also allows superviseur (AdminGN).
+	if (resourceSlug === 'treasury-deposits' && !isSuperAdmin(user?.role)) {
+		return { ...capabilities, canCreate: false, canEdit: false };
 	}
 	return capabilities;
 });

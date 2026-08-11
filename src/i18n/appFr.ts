@@ -171,6 +171,18 @@ export const appFr: Record<string, string> = {
 	'wrongfulDebits.errors.updateAdminLikeOnly':
 		'Un débit à tort déjà enregistré ne peut être modifié que par SuperAdmin ou adminGN.',
 
+	// --- treasuryDeposits (Apports de Trésorerie) ---
+	'treasuryDeposits.label': 'Apport de Trésorerie',
+	'treasuryDeposits.pluralLabel': 'Apports de Trésorerie',
+	'treasuryDeposits.fields.channel': 'Canal',
+	'treasuryDeposits.fields.reference': 'Référence',
+	'treasuryDeposits.fields.date': 'Date',
+	'treasuryDeposits.fields.createdBy': 'Ajouté par',
+	'treasuryDeposits.channel.bankTransfer': 'Virement bancaire',
+	'treasuryDeposits.channel.other': 'Autre',
+	'treasuryDeposits.errors.createSuperAdminOnly': "Seul SuperAdmin peut enregistrer un apport de trésorerie.",
+	'treasuryDeposits.errors.updateSuperAdminOnly': "Seul SuperAdmin peut modifier un apport de trésorerie.",
+
 	// --- pages ---
 	'pages.parametres.label': 'Paramètres',
 	'pages.parametres.security.title': 'Sécurité',
