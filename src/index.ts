@@ -44,18 +44,23 @@ import { appEn } from './i18n/appEn';
 // entry would just be a dead end for them. "withdrawal-cycles" isn't hidden
 // for anyone — everyone needs to browse cycles (read-only at minimum) to
 // find the one their shift belongs to; creation is blocked below via the
-// capabilities filter hook, not by hiding it. "settings"/"exchange-rates"
-// are `hidden` on the resource itself (embedded in ParametresPage instead
-// of their own nav entry). "users" ("Collaborateurs") isn't embedded — a
-// table embedded via TableBlock in a Page never gets KratosJS's row-action
-// `hasHandler` enrichment (only a resource's own schema route does), which
-// silently breaks the password-setup-link action; it's a real nav entry
-// instead, just grouped next to Paramètres, and admin-exclusive (stricter
-// than ADMIN_LIKE_ONLY below — see assertAdmin in userHooks.ts) via
-// ADMIN_ONLY_RESOURCE_SLUGS. "parametres" isn't admin-only either — every
-// role needs it for self-service 2FA (see ParametresPage, which gates its
-// Settings/Taux de Change blocks internally instead of hiding the whole page).
-const ADMIN_LIKE_ONLY_RESOURCE_SLUGS = ['card-groups', 'cards'];
+// capabilities filter hook, not by hiding it. "settings" is `hidden` on the
+// resource itself (embedded in ParametresPage instead of its own nav
+// entry) — plain single-record config, no row actions involved, so the
+// TableBlock gap below doesn't apply to it. "users" ("Collaborateurs") and
+// "exchange-rates" ("Taux de Change") both learned that gap the hard way and
+// aren't embedded — a table embedded via TableBlock in a Page never gets
+// KratosJS's row-action `hasHandler` enrichment (only a resource's own
+// schema route does), which silently broke Users' password-setup-link
+// action and Exchange Rates' "Modifier" (navigated to a bogus
+// /admin/list/:id/edit URL, a no-op). Both are real nav entries instead,
+// grouped next to Paramètres — Users admin-exclusive (stricter than
+// ADMIN_LIKE_ONLY below — see assertAdmin in userHooks.ts) via
+// ADMIN_ONLY_RESOURCE_SLUGS, Exchange Rates admin-like via
+// ADMIN_LIKE_ONLY_RESOURCE_SLUGS below. "parametres" isn't admin-only
+// either — every role needs it for self-service 2FA (see ParametresPage,
+// which gates its Settings block internally instead of hiding the whole page).
+const ADMIN_LIKE_ONLY_RESOURCE_SLUGS = ['card-groups', 'cards', 'exchange-rates'];
 const ADMIN_ONLY_RESOURCE_SLUGS = ['users'];
 // "treasury-deposits" is hidden from a plain agent (a manual treasury
 // top-up is a back-office concern, not something a field agent touches),

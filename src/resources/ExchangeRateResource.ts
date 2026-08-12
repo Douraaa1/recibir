@@ -13,15 +13,12 @@ import {
 import { ExchangeRate } from '../entities/ExchangeRate';
 import { exchangeRateHooks } from '../hooks/exchangeRateHooks';
 
-// Starting set (per the current business requirement). Adding a 6th currency
-// later is a one-line change here — no schema migration needed.
+// Only the currencies actually in use — a 4th can be added later with a
+// one-line change here, no schema migration needed.
 function currencyOptions() {
 	return {
 		GNF: t('app:exchangeRates.currency.GNF'),
 		USD: t('app:exchangeRates.currency.USD'),
-		EUR: t('app:exchangeRates.currency.EUR'),
-		XOF: t('app:exchangeRates.currency.XOF'),
-		CAD: t('app:exchangeRates.currency.CAD'),
 		AED: t('app:exchangeRates.currency.AED'),
 	};
 }
@@ -31,17 +28,27 @@ export class ExchangeRateResource extends BaseResource {
 
 	static entity = ExchangeRate;
 
-	// Never shown in the sidebar (`hidden` below) — its TableBlock embed in
-	// ParametresPage sets its own title/subtitle directly, so getLabel()
-	// never actually surfaces. Left as a plain field for that reason.
-	static label = 'Taux de Change';
-	static pluralLabel = 'Taux de Change';
+	static getLabel() {
+		return t('app:exchangeRates.label');
+	}
+	static getPluralLabel() {
+		return t('app:exchangeRates.pluralLabel');
+	}
 	static icon = 'ArrowRightLeft';
+	// A real nav entry, not embedded via TableBlock in ParametresPage — a
+	// table embedded that way never gets KratosJS's row-action resource-slug
+	// resolution (the same framework gap that broke Users' password-setup
+	// link; see index.ts's comment on ADMIN_ONLY_RESOURCE_SLUGS), so
+	// "Modifier" silently no-op'd (navigated to a bogus /admin/list/:id/edit
+	// URL) for every row here. Grouped next to Paramètres/Collaborateurs
+	// rather than under Opérations since it's back-office configuration, not
+	// day-to-day activity.
+	static getNavigationGroup() {
+		return t('app:pages.system');
+	}
+	static navigationSort = 3;
 
 	static canDelete = true;
-	// No standalone nav entry — embedded as a TableBlock in ParametresPage
-	// (alongside Sécurité) instead. Still fully routable via /exchange-rates/*.
-	static hidden = true;
 
 	static recordTitleAttribute = 'label';
 	static globallySearchableAttributes = ['code', 'label'];
@@ -61,7 +68,7 @@ export class ExchangeRateResource extends BaseResource {
 				.required()
 				.minValue(0.0001)
 				.step(0.0001)
-				.disabled((c: FormContext) => c?.get('code') === 'GNF'),
+				.disabled((c: FormContext) => c?.get('code') === 'GNF' || c?.get('code') === 'AED'),
 			Toggle.make('active').label(t('app:common.active')).default(true),
 		]);
 	}

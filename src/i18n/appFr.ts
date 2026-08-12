@@ -59,19 +59,21 @@ export const appFr: Record<string, string> = {
 	'settings.form.sessionTimeoutMinutes.helperText': "Déconnexion automatique après cette durée d'inactivité.",
 	'settings.columns.timeout': 'Timeout (min)',
 
-	// --- exchangeRates (Taux de Change — embedded in ParametresPage) ---
+	// --- exchangeRates (Taux de Change) ---
+	'exchangeRates.label': 'Taux de Change',
+	'exchangeRates.pluralLabel': 'Taux de Change',
 	'exchangeRates.currency.GNF': 'GNF — Franc Guinéen',
 	'exchangeRates.currency.USD': 'USD — Dollar Américain',
-	'exchangeRates.currency.EUR': 'EUR — Euro',
-	'exchangeRates.currency.XOF': 'XOF — Franc CFA (BCEAO)',
-	'exchangeRates.currency.CAD': 'CAD — Dollar Canadien',
 	'exchangeRates.currency.AED': 'AED — Dirham des Émirats Arabes Unis',
 	'exchangeRates.fields.code': 'Devise',
 	'exchangeRates.fields.label': 'Libellé',
 	'exchangeRates.fields.rateToGNF': 'Taux (1 unité = X GNF)',
-	'exchangeRates.form.rateToGNF.helperText': 'GNF est la devise pivot : son taux reste fixé à 1.',
+	'exchangeRates.form.rateToGNF.helperText':
+		"GNF est la devise pivot : son taux reste fixé à 1. AED est indexé sur l'USD (parité officielle fixe, 3,6725 AED pour 1 USD) : son taux se recalcule automatiquement — modifie plutôt le taux USD, qui lui varie souvent.",
 	'exchangeRates.columns.code': 'Code',
 	'exchangeRates.columns.rateToGNF': 'Taux vers GNF',
+	'exchangeRates.errors.adminLikeOnly': 'Seuls SuperAdmin et adminGN peuvent gérer les taux de change.',
+	'exchangeRates.errors.cannotDeleteCore': 'Le Dollar (USD) et le Dirham (AED) sont utilisés dans tout le système et ne peuvent pas être supprimés.',
 
 	// --- cards (Cartes) ---
 	'cards.label': 'Carte',
@@ -187,8 +189,6 @@ export const appFr: Record<string, string> = {
 	'pages.parametres.label': 'Paramètres',
 	'pages.parametres.security.title': 'Sécurité',
 	'pages.parametres.security.subtitle': 'Timeout de session avant déconnexion automatique.',
-	'pages.parametres.exchangeRates.title': 'Taux de Change',
-	'pages.parametres.exchangeRates.subtitle': '1 unité de devise = X GNF. GNF reste fixé à 1 (devise pivot).',
 	'pages.dashboard.label': 'Tableau de bord',
 	'pages.dashboard.shifts.title': 'Suivi des Shifts',
 	'pages.dashboard.shifts.subtitleTeam': 'Tous les groupes et agents',

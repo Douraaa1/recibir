@@ -1,7 +1,6 @@
-import { Page, FormBlock, TableBlock, t, type Block } from '@maxal_studio/kratosjs';
+import { Page, FormBlock, t, type Block } from '@maxal_studio/kratosjs';
 import { TwoFactorSetupBlock } from '@maxal_studio/kratosjs-plugin-2fa';
 import { SettingResource } from '../resources/SettingResource';
-import { ExchangeRateResource } from '../resources/ExchangeRateResource';
 import { isAdminLike } from '../utils/roles';
 
 export class ParametresPage extends Page {
@@ -38,11 +37,6 @@ export class ParametresPage extends Page {
 					.columns(12)
 					.title(t('app:pages.parametres.security.title'))
 					.subtitle(t('app:pages.parametres.security.subtitle')),
-				TableBlock.make(ExchangeRateResource.table())
-					.dataUrl('exchange-rates/list')
-					.columns(12)
-					.title(t('app:pages.parametres.exchangeRates.title'))
-					.subtitle(t('app:pages.parametres.exchangeRates.subtitle')),
 			);
 		}
 

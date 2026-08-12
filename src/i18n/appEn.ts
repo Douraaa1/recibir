@@ -47,19 +47,21 @@ export const appEn: Record<string, string> = {
 	'settings.form.sessionTimeoutMinutes.helperText': 'Automatic logout after this period of inactivity.',
 	'settings.columns.timeout': 'Timeout (min)',
 
-	// --- exchangeRates (Exchange Rates — embedded in ParametresPage) ---
+	// --- exchangeRates (Exchange Rates) ---
+	'exchangeRates.label': 'Exchange Rate',
+	'exchangeRates.pluralLabel': 'Exchange Rates',
 	'exchangeRates.currency.GNF': 'GNF — Guinean Franc',
 	'exchangeRates.currency.USD': 'USD — US Dollar',
-	'exchangeRates.currency.EUR': 'EUR — Euro',
-	'exchangeRates.currency.XOF': 'XOF — CFA Franc (BCEAO)',
-	'exchangeRates.currency.CAD': 'CAD — Canadian Dollar',
 	'exchangeRates.currency.AED': 'AED — UAE Dirham',
 	'exchangeRates.fields.code': 'Currency',
 	'exchangeRates.fields.label': 'Label',
 	'exchangeRates.fields.rateToGNF': 'Rate (1 unit = X GNF)',
-	'exchangeRates.form.rateToGNF.helperText': 'GNF is the pivot currency: its rate stays fixed at 1.',
+	'exchangeRates.form.rateToGNF.helperText':
+		'GNF is the pivot currency: its rate stays fixed at 1. AED is pegged to USD (official fixed parity, 3.6725 AED per USD): its rate is recalculated automatically — edit the USD rate instead, which moves often.',
 	'exchangeRates.columns.code': 'Code',
 	'exchangeRates.columns.rateToGNF': 'Rate to GNF',
+	'exchangeRates.errors.adminLikeOnly': 'Only SuperAdmin and adminGN can manage exchange rates.',
+	'exchangeRates.errors.cannotDeleteCore': 'The Dollar (USD) and Dirham (AED) are used throughout the system and cannot be deleted.',
 
 	// --- cards (Cards) ---
 	'cards.label': 'Card',
@@ -173,8 +175,6 @@ export const appEn: Record<string, string> = {
 	'pages.parametres.label': 'Settings',
 	'pages.parametres.security.title': 'Security',
 	'pages.parametres.security.subtitle': 'Session timeout before automatic logout.',
-	'pages.parametres.exchangeRates.title': 'Exchange Rates',
-	'pages.parametres.exchangeRates.subtitle': '1 currency unit = X GNF. GNF stays fixed at 1 (pivot currency).',
 	'pages.dashboard.label': 'Dashboard',
 	'pages.dashboard.shifts.title': 'Shift Tracking',
 	'pages.dashboard.shifts.subtitleTeam': 'All groups and agents',
