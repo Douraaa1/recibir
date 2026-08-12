@@ -10,7 +10,7 @@ import { isAdminLike } from '../utils/roles';
 // constant, so editing USD is the only thing an admin ever has to do to
 // keep both currencies current. Update this constant (not the AED row) if
 // the peg itself is ever revised.
-const AED_PER_USD = 3.6725;
+const AED_PER_USD = 3.67;
 
 function assertAdminLike(ctx: HookContext) {
 	if (!isAdminLike(ctx.user?.role)) {

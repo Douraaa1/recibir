@@ -57,7 +57,7 @@ export const appEn: Record<string, string> = {
 	'exchangeRates.fields.label': 'Label',
 	'exchangeRates.fields.rateToGNF': 'Rate (1 unit = X GNF)',
 	'exchangeRates.form.rateToGNF.helperText':
-		'GNF is the pivot currency: its rate stays fixed at 1. AED is pegged to USD (official fixed parity, 3.6725 AED per USD): its rate is recalculated automatically — edit the USD rate instead, which moves often.',
+		'GNF is the pivot currency: its rate stays fixed at 1. AED is pegged to USD (fixed parity, 3.67 AED per USD): its rate is recalculated automatically — edit the USD rate instead, which moves often.',
 	'exchangeRates.columns.code': 'Code',
 	'exchangeRates.columns.rateToGNF': 'Rate to GNF',
 	'exchangeRates.errors.adminLikeOnly': 'Only SuperAdmin and adminGN can manage exchange rates.',

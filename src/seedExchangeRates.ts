@@ -3,12 +3,12 @@ import { ExchangeRate, type CurrencyCode } from './entities/ExchangeRate';
 
 // Illustrative starting point for USD/GNF only — the admin is expected to
 // correct it to the real market rate from the Taux de Change screen (GNF/USD
-// moves often). AED's default is derived from it (AED/USD is officially
-// pegged at 3.6725, essentially fixed — see exchangeRateHooks.ts), matching
-// what editing USD later will keep re-deriving, so the very first boot is
+// moves often). AED's default is derived from it (AED/USD is pegged at
+// 3.67, essentially fixed — see exchangeRateHooks.ts), matching what
+// editing USD later will keep re-deriving, so the very first boot is
 // already internally consistent.
 const USD_DEFAULT_RATE_TO_GNF = 8600;
-const AED_PER_USD = 3.6725;
+const AED_PER_USD = 3.67;
 
 const DEFAULTS: { code: CurrencyCode; label: string; rateToGNF: number }[] = [
 	{ code: 'GNF', label: 'Franc Guinéen', rateToGNF: 1 },

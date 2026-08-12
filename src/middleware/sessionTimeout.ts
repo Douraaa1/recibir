@@ -18,6 +18,17 @@ const DEFAULT_TIMEOUT_MINUTES = 30;
  * trusts anything from the client beyond that cookie.
  */
 export function sessionTimeoutMiddleware(panel: Panel, jwtSecret: string): KratosMiddleware {
+	// kratosjs-react's AuthContext proactively calls this endpoint on a timer
+	// (~1min before the access token's 15min expiry, so roughly every 14min)
+	// to keep the tab's JWT alive — completely independent of whether the
+	// person at the keyboard has done anything. Letting that silent call
+	// slide the activity window forward defeated the whole feature: an
+	// abandoned tab would refresh itself forever and never time out. It still
+	// passes through the timeout *check* below (so a session idle past the
+	// configured duration is still correctly rejected here and logged out
+	// client-side), it just never *extends* the window on success.
+	const passiveRefreshPath = `${panel.getBasePath()}/auth/refresh`;
+
 	return async (req, reply, next) => {
 		if (!req.path.startsWith(panel.getBasePath())) {
 			return next();
@@ -51,13 +62,15 @@ export function sessionTimeoutMiddleware(panel: Panel, jwtSecret: string): Krato
 			return;
 		}
 
-		reply.cookie(ACTIVITY_COOKIE, String(now), {
-			httpOnly: true,
-			secure: process.env.NODE_ENV === 'production',
-			sameSite: 'lax',
-			path: '/',
-			maxAge: timeoutMs,
-		});
+		if (req.path !== passiveRefreshPath) {
+			reply.cookie(ACTIVITY_COOKIE, String(now), {
+				httpOnly: true,
+				secure: process.env.NODE_ENV === 'production',
+				sameSite: 'lax',
+				path: '/',
+				maxAge: timeoutMs,
+			});
+		}
 		return next();
 	};
 }

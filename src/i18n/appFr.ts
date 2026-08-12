@@ -69,7 +69,7 @@ export const appFr: Record<string, string> = {
 	'exchangeRates.fields.label': 'Libellé',
 	'exchangeRates.fields.rateToGNF': 'Taux (1 unité = X GNF)',
 	'exchangeRates.form.rateToGNF.helperText':
-		"GNF est la devise pivot : son taux reste fixé à 1. AED est indexé sur l'USD (parité officielle fixe, 3,6725 AED pour 1 USD) : son taux se recalcule automatiquement — modifie plutôt le taux USD, qui lui varie souvent.",
+		"GNF est la devise pivot : son taux reste fixé à 1. AED est indexé sur l'USD (parité fixe, 3,67 AED pour 1 USD) : son taux se recalcule automatiquement — modifie plutôt le taux USD, qui lui varie souvent.",
 	'exchangeRates.columns.code': 'Code',
 	'exchangeRates.columns.rateToGNF': 'Taux vers GNF',
 	'exchangeRates.errors.adminLikeOnly': 'Seuls SuperAdmin et adminGN peuvent gérer les taux de change.',
