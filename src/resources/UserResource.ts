@@ -40,6 +40,26 @@ const ROLE_LABELS = {
 // debit isn't a confirmed loss or gain, so it doesn't move this figure
 // either way) — not the shared treasury balance (that also nets out client
 // payments; see ShiftResource's 'shifts.treasuryTotal').
+function passwordSetupLinkColumn() {
+	const column = TextColumn.make('passwordSetupLink')
+		.label(t('app:users.columns.passwordSetupLink'))
+		.formatStateUsing(async (_value: any, row: any) => {
+			const em = UserResource.getPanel().getEm().fork();
+			const user: any = await em.findOne(User, { id: row.id });
+			const valid =
+				user?.passwordSetupToken && user.passwordSetupExpiresAt && user.passwordSetupExpiresAt.getTime() > Date.now();
+			if (!valid) return '—';
+			return `${getPublicUrl()}/set-password?token=${user.passwordSetupToken}`;
+		});
+	// `columnType` is `protected` in the framework's TS types but is a plain
+	// mutable instance field at runtime, and toJSON() reads it dynamically —
+	// overriding it here is what lets main.tsx's `columns: {'password-link': ...}`
+	// registration target only this one column (registry entries are keyed by
+	// the served `type`; every other TextColumn in the app keeps the default).
+	(column as any).columnType = 'password-link';
+	return column;
+}
+
 async function netGeneratedByAgent(em: any, agentId: number): Promise<number> {
 	const shifts = await em.find(Shift, { agent: agentId } as any);
 	const withdrawn = shifts.reduce((sum: number, s: any) => sum + s.withdrawnAED, 0);
@@ -134,16 +154,11 @@ export class UserResource extends BaseResource {
 				// this makes the current link durably visible/selectable for as
 				// long as it's valid (48h), instead of only right after clicking
 				// "Générer un lien" (see userActions.ts's generatePasswordLink).
-				TextColumn.make('passwordSetupLink')
-					.label(t('app:users.columns.passwordSetupLink'))
-					.formatStateUsing(async (_value: any, row: any) => {
-						const em = UserResource.getPanel().getEm().fork();
-						const user: any = await em.findOne(User, { id: row.id });
-						const valid =
-							user?.passwordSetupToken && user.passwordSetupExpiresAt && user.passwordSetupExpiresAt.getTime() > Date.now();
-						if (!valid) return '—';
-						return `${getPublicUrl()}/set-password?token=${user.passwordSetupToken}`;
-					}),
+				// The link itself is long and awkward to select by hand, so its
+				// `columnType` is overridden below to pick up a custom renderer
+				// (src/admin/PasswordLinkColumn.tsx) that adds a copy button next
+				// to the text — every other TextColumn in the app is unaffected.
+				passwordSetupLinkColumn(),
 				ToggleColumn.make('active').label(t('app:common.active')).sortable(),
 				TextColumn.make('createdAt').label(t('app:common.createdAt')).sortable().dateTime(),
 			])

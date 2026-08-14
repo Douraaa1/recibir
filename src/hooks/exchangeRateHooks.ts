@@ -1,15 +1,16 @@
 import { t, type ResourceHooks, type HookContext } from '@maxal_studio/kratosjs';
 import { ExchangeRate } from '../entities/ExchangeRate';
 import { coerceNumericFields } from '../utils/coerceNumeric';
-import { isAdminLike } from '../utils/roles';
+import { isAdminLike, isSuperAdmin } from '../utils/roles';
 
-// The UAE Dirham has been pegged to the US Dollar at this rate since 1997 —
+// The UAE Dirham is pegged to the US Dollar at roughly this rate —
 // essentially fixed, unlike GNF/USD which moves often. AED's own rateToGNF
-// is therefore never entered directly (the form disables it, mirroring
-// GNF's pivot lock): it's always derived from USD's rateToGNF ÷ this
-// constant, so editing USD is the only thing an admin ever has to do to
-// keep both currencies current. Update this constant (not the AED row) if
-// the peg itself is ever revised.
+// is therefore derived from USD's rateToGNF ÷ this constant by default (the
+// form locks the field for everyone), so editing USD is normally the only
+// thing an admin has to do to keep both currencies current. SuperAdmin can
+// still override AED's rate directly when needed (see the beforeCreate/
+// beforeUpdate guards below) — update this constant instead if the peg
+// itself changes for good.
 const AED_PER_USD = 3.67;
 
 function assertAdminLike(ctx: HookContext) {
@@ -35,16 +36,19 @@ export const exchangeRateHooks: ResourceHooks = {
 			if (!data) return;
 			coerceNumericFields(data, ['rateToGNF']);
 			if (data.code === 'GNF') data.rateToGNF = 1;
-			if (data.code === 'AED') {
+			// SuperAdmin creating an AED row directly (rare — normally seeded
+			// once) keeps whatever rate they submitted; anyone else gets the
+			// derived value enforced, matching the locked form field.
+			if (data.code === 'AED' && !isSuperAdmin(ctx.user?.role)) {
 				const em = (ctx.adapter as any).getEm().fork();
 				data.rateToGNF = await derivedAedRate(em);
 			}
 		},
 	],
-	// GNF is the pivot currency — it must stay at 1. AED is pegged to USD —
-	// its rate is always re-derived here regardless of what's submitted, so
-	// it can never drift out of sync even via a direct API call (the form
-	// disables the field, but this is the server-side backstop).
+	// GNF is the pivot currency — it must stay at 1. AED is pegged to USD by
+	// default; the form only unlocks that field for the literal SuperAdmin,
+	// so anyone else's edit (or a direct API call bypassing the disabled UI)
+	// still gets the derived value enforced here as a backstop.
 	beforeUpdate: [
 		async (ctx: HookContext) => {
 			assertAdminLike(ctx);
@@ -56,7 +60,7 @@ export const exchangeRateHooks: ResourceHooks = {
 			const existing = await em.findOne(ExchangeRate, { id });
 			if (existing?.code === 'GNF') {
 				data.rateToGNF = 1;
-			} else if (existing?.code === 'AED') {
+			} else if (existing?.code === 'AED' && !isSuperAdmin(ctx.user?.role)) {
 				data.rateToGNF = await derivedAedRate(em);
 			}
 		},

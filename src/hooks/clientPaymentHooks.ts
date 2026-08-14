@@ -1,7 +1,11 @@
 import { t, type ResourceHooks, type HookContext } from '@maxal_studio/kratosjs';
 import { ClientPayment } from '../entities/ClientPayment';
+import { User } from '../entities/User';
 import { coerceNumericFields } from '../utils/coerceNumeric';
 import { isAdminLike, seesTeamWideData } from '../utils/roles';
+import { sendEmail } from '../utils/email';
+import { formatCurrency } from '../utils/formatMoney';
+import { getPublicUrl } from '../utils/publicUrl';
 
 const CODE_GENERATION_RETRIES = 3;
 
@@ -15,6 +19,30 @@ async function generateUniqueCode(em: any): Promise<string> {
 	// Extremely unlikely (would need concurrent creates on every retry) — a
 	// timestamp suffix guarantees uniqueness even in that case.
 	return `env-${Date.now()}`;
+}
+
+// AdminEAU (chef_equipe) is who acts on a pending payment (validate/refuse —
+// see clientPaymentActions.ts), so they're the ones notified when one shows
+// up. Best-effort: sendEmail never throws, so a missing/misconfigured
+// RESEND_API_KEY or a Resend outage can never block creating the payment
+// itself — see src/utils/email.ts.
+async function notifyPendingPayment(em: any, payment: any): Promise<void> {
+	const reviewers = await em.find(User, { role: 'chef_equipe', active: true } as any);
+	const emails = reviewers.map((u: any) => u.email).filter(Boolean);
+	if (emails.length === 0) return;
+
+	const link = `${getPublicUrl()}/admin/client-payments`;
+	const html = `
+		<p>Un nouveau paiement client est en attente de validation.</p>
+		<ul>
+			<li><strong>Code :</strong> ${payment.code}</li>
+			<li><strong>Expéditeur :</strong> ${payment.senderName || '—'}</li>
+			<li><strong>Destinataire :</strong> ${payment.clientName}</li>
+			<li><strong>Montant :</strong> ${formatCurrency(payment.amountAED, 'AED')}</li>
+		</ul>
+		<p><a href="${link}">Voir dans RECIBIR</a></p>
+	`;
+	await sendEmail(emails, `Paiement en attente — ${payment.code}`, html);
 }
 
 export const clientPaymentHooks: ResourceHooks = {
@@ -34,6 +62,14 @@ export const clientPaymentHooks: ResourceHooks = {
 
 			const em = (ctx.adapter as any).getEm().fork();
 			data.code = await generateUniqueCode(em);
+		},
+	],
+	afterCreate: [
+		async (ctx: HookContext) => {
+			const payment = ctx.output.records?.[0];
+			if (!payment) return;
+			const em = (ctx.adapter as any).getEm().fork();
+			await notifyPendingPayment(em, payment);
 		},
 	],
 	// Tiered by status: nothing's been debited yet while pending, so the

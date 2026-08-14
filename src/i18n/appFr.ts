@@ -37,6 +37,8 @@ export const appFr: Record<string, string> = {
 	'users.columns.netGenerated': 'Net généré (AED)',
 	'users.columns.passwordStatus': 'Mot de passe',
 	'users.columns.passwordSetupLink': 'Lien de configuration',
+	'users.columns.passwordSetupLink.copy': 'Copier le lien',
+	'users.columns.passwordSetupLink.copied': 'Lien copié !',
 	'users.status.configured': 'Configuré',
 	'users.status.linkSent': 'Lien envoyé (en attente)',
 	'users.status.toConfigure': 'À configurer',
@@ -69,7 +71,7 @@ export const appFr: Record<string, string> = {
 	'exchangeRates.fields.label': 'Libellé',
 	'exchangeRates.fields.rateToGNF': 'Taux (1 unité = X GNF)',
 	'exchangeRates.form.rateToGNF.helperText':
-		"GNF est la devise pivot : son taux reste fixé à 1. AED est indexé sur l'USD (parité fixe, 3,67 AED pour 1 USD) : son taux se recalcule automatiquement — modifie plutôt le taux USD, qui lui varie souvent.",
+		"GNF est la devise pivot : son taux reste fixé à 1. AED est indexé sur l'USD (parité fixe, 3,67 AED pour 1 USD) et se recalcule automatiquement à chaque modification du taux USD, qui lui varie souvent — SuperAdmin peut toutefois corriger le taux AED manuellement si besoin.",
 	'exchangeRates.columns.code': 'Code',
 	'exchangeRates.columns.rateToGNF': 'Taux vers GNF',
 	'exchangeRates.errors.adminLikeOnly': 'Seuls SuperAdmin et adminGN peuvent gérer les taux de change.',

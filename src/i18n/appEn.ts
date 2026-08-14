@@ -25,6 +25,8 @@ export const appEn: Record<string, string> = {
 	'users.columns.netGenerated': 'Net generated (AED)',
 	'users.columns.passwordStatus': 'Password',
 	'users.columns.passwordSetupLink': 'Setup link',
+	'users.columns.passwordSetupLink.copy': 'Copy link',
+	'users.columns.passwordSetupLink.copied': 'Link copied!',
 	'users.status.configured': 'Configured',
 	'users.status.linkSent': 'Link sent (pending)',
 	'users.status.toConfigure': 'To configure',
@@ -57,7 +59,7 @@ export const appEn: Record<string, string> = {
 	'exchangeRates.fields.label': 'Label',
 	'exchangeRates.fields.rateToGNF': 'Rate (1 unit = X GNF)',
 	'exchangeRates.form.rateToGNF.helperText':
-		'GNF is the pivot currency: its rate stays fixed at 1. AED is pegged to USD (fixed parity, 3.67 AED per USD): its rate is recalculated automatically — edit the USD rate instead, which moves often.',
+		'GNF is the pivot currency: its rate stays fixed at 1. AED is pegged to USD (fixed parity, 3.67 AED per USD) and recalculates automatically whenever the USD rate changes, which moves more often — SuperAdmin can still correct the AED rate manually if needed.',
 	'exchangeRates.columns.code': 'Code',
 	'exchangeRates.columns.rateToGNF': 'Rate to GNF',
 	'exchangeRates.errors.adminLikeOnly': 'Only SuperAdmin and adminGN can manage exchange rates.',

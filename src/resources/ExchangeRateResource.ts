@@ -12,6 +12,7 @@ import {
 } from '@maxal_studio/kratosjs';
 import { ExchangeRate } from '../entities/ExchangeRate';
 import { exchangeRateHooks } from '../hooks/exchangeRateHooks';
+import { isSuperAdmin } from '../utils/roles';
 
 // Only the currencies actually in use — a 4th can be added later with a
 // one-line change here, no schema migration needed.
@@ -54,6 +55,11 @@ export class ExchangeRateResource extends BaseResource {
 	static globallySearchableAttributes = ['code', 'label'];
 
 	static form() {
+		// AED's rate auto-follows USD (see exchangeRateHooks.ts) — locked for
+		// everyone except the literal SuperAdmin, who can still override it
+		// manually if the peg itself ever needs a temporary/permanent correction.
+		const isSuperAdminUser = isSuperAdmin(this.getContext()?.user?.role);
+
 		return FormBuilder.make().schema([
 			SelectInput.make('code')
 				.label(t('app:exchangeRates.fields.code'))
@@ -68,7 +74,7 @@ export class ExchangeRateResource extends BaseResource {
 				.required()
 				.minValue(0.0001)
 				.step(0.0001)
-				.disabled((c: FormContext) => c?.get('code') === 'GNF' || c?.get('code') === 'AED'),
+				.disabled((c: FormContext) => c?.get('code') === 'GNF' || (c?.get('code') === 'AED' && !isSuperAdminUser)),
 			Toggle.make('active').label(t('app:common.active')).default(true),
 		]);
 	}

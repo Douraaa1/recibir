@@ -22,7 +22,8 @@
 		"@mikro-orm/sqlite": "^7.1.7",
 		"dotenv": "^17.4.2",
 		"jsonwebtoken": "^9.0.3",
-		"pdfkit": "^0.19.1"
+		"pdfkit": "^0.19.1",
+		"resend": "^6.19.0"
 	},
 	"devDependencies": {
 		"@maxal_studio/kratosjs-react": "^3.0.2",
