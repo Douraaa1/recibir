@@ -41,6 +41,8 @@ export const appEn: Record<string, string> = {
 	'users.errors.noneSelected': 'No collaborator selected.',
 	'users.errors.notFound': 'Collaborator not found.',
 	'users.errors.adminOnly': 'Only SuperAdmin can manage collaborators.',
+	'users.errors.hasRelatedRecords':
+		"This collaborator has related records (shifts, payments, wrongful debits...) and can't be deleted — deactivate them instead via the \"Active\" field.",
 
 	// --- settings (Settings — embedded in ParametresPage) ---
 	'settings.recordTitle': 'Configuration',

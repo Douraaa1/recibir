@@ -53,6 +53,8 @@ export const appFr: Record<string, string> = {
 	'users.errors.noneSelected': 'Aucun collaborateur sélectionné.',
 	'users.errors.notFound': 'Collaborateur introuvable.',
 	'users.errors.adminOnly': 'Seul SuperAdmin peut gérer les collaborateurs.',
+	'users.errors.hasRelatedRecords':
+		"Ce collaborateur a des opérations liées (shifts, paiements, débits à tort...) et ne peut pas être supprimé — désactive-le plutôt via le champ « Actif ».",
 
 	// --- settings (Paramètres — embedded in ParametresPage) ---
 	'settings.recordTitle': 'Configuration',

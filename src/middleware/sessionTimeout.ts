@@ -5,6 +5,14 @@ import { Setting } from '../entities/Setting';
 const ACCESS_TOKEN_COOKIE = 'kratosjs_access_token';
 const ACTIVITY_COOKIE = 'recibir_last_activity';
 const DEFAULT_TIMEOUT_MINUTES = 30;
+// Deliberately much longer than any realistic session-timeout setting: the
+// server-side comparison against Setting.sessionTimeoutMinutes is what
+// actually decides expiry. If this cookie's own maxAge instead matched
+// timeoutMs, the browser would silently drop it right as the idle window
+// closed, so the very request meant to trigger the timeout would arrive
+// with no activity cookie at all — read as "first activity ever" below and
+// just reset the clock, so the session would never really expire.
+const ACTIVITY_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60_000;
 
 /**
  * Idle-session timeout, independent of the JWT's own (fixed, boot-time)
@@ -68,7 +76,7 @@ export function sessionTimeoutMiddleware(panel: Panel, jwtSecret: string): Krato
 				secure: process.env.NODE_ENV === 'production',
 				sameSite: 'lax',
 				path: '/',
-				maxAge: timeoutMs,
+				maxAge: ACTIVITY_COOKIE_MAX_AGE_MS,
 			});
 		}
 		return next();
