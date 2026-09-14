@@ -86,6 +86,19 @@ const CLIENT_PAYMENT_TEAM_ACTIONS = ['validatePayment', 'refusePayment', 'downlo
 const CLIENT_PAYMENT_ADMIN_LIKE_ACTIONS = ['cancelPayment'];
 
 const PORT = parseInt(process.env.PORT || '3000');
+// Fail fast rather than silently signing every session with a secret that's
+// public in this repo's own .env.example — that's a full admin-auth bypass,
+// not just a weak-crypto footgun. Dev/test keep the convenience fallback
+// (no setup required to `npm run dev`); only a real deploy is refused.
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+	throw new Error(
+		'JWT_SECRET is not set. Refusing to start in production with the ' +
+			"insecure default from .env.example — anyone who's read this repo " +
+			'could forge a valid admin session. Generate one with ' +
+			'`openssl rand -base64 32` and set it on Render (Environment tab), ' +
+			'then redeploy.',
+	);
+}
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 // UPLOADS_PATH lets production point this at a mounted persistent disk
 // (e.g. Render Disks) instead of the app's ephemeral local folder.

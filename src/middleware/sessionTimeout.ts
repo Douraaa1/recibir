@@ -36,9 +36,26 @@ export function sessionTimeoutMiddleware(panel: Panel, jwtSecret: string): Krato
 	// configured duration is still correctly rejected here and logged out
 	// client-side), it just never *extends* the window on success.
 	const passiveRefreshPath = `${panel.getBasePath()}/auth/refresh`;
+	// Only routes that establish a brand-new session are exempt — a stale
+	// cookie left over from a *previous*, idle-expired session must never
+	// block a fresh login (or its 2FA follow-up) from going through. This is
+	// deliberately narrower than "every /auth/* route": /auth/refresh and
+	// /auth/me both act on the *current* session's own cookies and must stay
+	// subject to the check below, or an idle-abandoned tab's background
+	// refresh (or a plain page reload) would silently keep it alive forever —
+	// the exact loophole this middleware exists to close.
+	const sessionEstablishingPaths = new Set([
+		`${panel.getBasePath()}/auth/login`,
+		`${panel.getBasePath()}/auth/challenge`,
+		`${panel.getBasePath()}/auth/providers`,
+	]);
 
 	return async (req, reply, next) => {
 		if (!req.path.startsWith(panel.getBasePath())) {
+			return next();
+		}
+
+		if (sessionEstablishingPaths.has(req.path) || req.path.startsWith(`${panel.getBasePath()}/auth/oauth/`)) {
 			return next();
 		}
 

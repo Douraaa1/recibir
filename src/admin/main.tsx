@@ -1,4 +1,5 @@
 import { mountAdminPanel } from '@maxal_studio/kratosjs-react';
+import './sessionExpiredRedirect';
 import { pluginClients } from 'virtual:kratos-client';
 import twoFactorClient from '@maxal_studio/kratosjs-plugin-2fa/client';
 import { CustomStatsWidget } from './CustomStatsWidget';
